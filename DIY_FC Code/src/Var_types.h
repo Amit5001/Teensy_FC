@@ -19,12 +19,6 @@
 
 #define RATE_DO_EXECUTE(RATE_HZ, TICK) ((TICK % (RATE_MAIN_LOOP / RATE_HZ)) == 0)
 
-typedef struct baro_s {
-  float pressure;           // mbar
-  float temperature;        // degree Celcius
-  float asl;                // m (ASL = altitude above sea level)
-} baro_t;
-
 typedef struct{
     float x;
     float y;
@@ -39,10 +33,22 @@ typedef struct{
     float w;
 } quat_t;
 
+typedef struct baro_s {
+  float pressure;           // mbar
+  float temperature;        // degree Celcius
+  float asl;                // m (ASL = altitude above sea level)
+} baro_t;
+
 typedef struct{
     vec3_t acc;
+    vec3_t acc_bias = {0.0, 0.0, 0.0};
     vec3_t gyro;
+    vec3_t gyro_bias = {0.0, 0.0, 0.0};
+    float gyro_drift = {0.0};
     vec3_t mag;
+    vec3_t mag_bias = {0.0, 0.0, 0.0};
+    vec3_t initial_mag = {0.0, 0.0, 0.0};
+    float initial_heading = 0.0;
     baro_t baro_data;
 }Measurement_t;
 

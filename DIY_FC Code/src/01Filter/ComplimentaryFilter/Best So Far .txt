@@ -10,11 +10,11 @@
 
 
 // Adaptive Beta parameters, LPF and HPF:
-#define LOW_MOTION 0.001*245.0f
-#define HIGH_MOTION 0.008*245.0f
+#define LOW_MOTION 0.005*245.0f
+#define HIGH_MOTION 0.01*245.0f
 #define HIGH_BETA 0.8f
-#define LOW_BETA 0.01f
-#define DEFAULT_BETA 0.04f
+#define LOW_BETA 0.1f
+#define DEFAULT_BETA 0.3f
 #define ALPHA_LPF 0.25f
 #define ALPHA_HPF 0.75f
 
@@ -91,24 +91,34 @@ void UpdateQ(Measurement_t* meas, float dt){
         qDot2 -= BETA * s1;
         qDot3 -= BETA * s2;
         qDot4 -= BETA * s3;
-
-
     }
     if(USE_MAG &&( meas->mag.x != 0.0 && meas->mag.y != 0.0 && meas->mag.z != 0.0) && (gyroNorm > HIGH_MOTION)){
     //if(USE_MAG &&( meas->mag.x != 0.0 && meas->mag.y != 0.0 && meas->mag.z != 0.0)){
         float yawMag = atan2f(meas->mag.y, meas->mag.x);
         float yawError = yawMag - atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z);
-        // if (yawError > PI) yawError -= 2*PI;
-        // if (yawError < -PI) yawError += 2*PI;
-        if(yawError > 0.1*deg2rad) BETA = HIGH_BETA;
-        BETA = DEFAULT_BETA;
+        if (fabs(yawError) > 0.1*deg2rad){
+            BETA = LOW_BETA;
+            float MagNorm = invSqrt(meas->mag.x * meas->mag.x + meas->mag.y * meas->mag.y + meas->mag.z * meas->mag.z);
+            meas->mag.x *= MagNorm;
+            meas->mag.y *= MagNorm;
+            meas->mag.z *= MagNorm;
+        }
+        else{
+            BETA = 5*HIGH_BETA;
+            float MagNorm = invSqrt(meas->mag.x * meas->mag.x + meas->mag.y * meas->mag.y + meas->mag.z * meas->mag.z);
+            meas->mag.x *= MagNorm;
+            meas->mag.y *= MagNorm;
+            meas->mag.z *= MagNorm;
+        }
 
-        // Apply feedback step (Magnetometer) Only for Yaw related parameters
+
+        //Serial.print("Yaw Error: "); Serial.println(yawError);
+
+        // Apply feedback step (Magnetometer)
         qDot1 -= BETA * yawError;
-        // qDot2 -= BETA * yawError;
-        // qDot3 -= BETA * yawError;
+        qDot2 -= BETA * yawError;
+        qDot3 -= BETA * yawError;
         qDot4 -= BETA * yawError;
-
     }
 
 
@@ -195,19 +205,20 @@ void estimatedGravityDir(float* gx, float* gy, float*gz){
 float calculateDynamicBeta(Measurement_t meas) {
     // Compute the norm (magnitude) of the gyroscope vector
     gyroNorm = sqrtf(meas.gyro.x * meas.gyro.x + meas.gyro.y * meas.gyro.y + meas.gyro.z * meas.gyro.z);
-
+    // Serial.print("Gyro Norm: ");
+    // Serial.println(gyroNorm);
     // Adapt Beta based on gyroscope norm
     if (gyroNorm < LOW_MOTION) {
         // System is likely stable or slow-moving, increase Beta for more correction
-        // Serial.println("Low Motion");
+        // Serial.println("LOW motion - High Beta");
         return HIGH_BETA;
     } else if (gyroNorm > HIGH_MOTION) {
         // System is moving fast, reduce Beta to rely more on gyroscope
-        // Serial.println("High Motion");
+        // Serial.println("HIGH motion - Low Beta");
         return LOW_BETA;
     } else {
         // Default case, normal correction
-        // Serial.println("Default Motion");
+        // Serial.println("Default Beta");
         return DEFAULT_BETA;
     }
 }
