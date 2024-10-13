@@ -57,27 +57,7 @@ void setup() {
   // delay(1000);
   // calibrateESC();
 
-  // mot1.writeMicroseconds(1100);
-  // delay(1000);
-  // Serial.println("Motor 1 Armed");
-}
-
 void loop() {
-    // delay(1000);
-    // Serial.println("Motor 1 Testing");
-    // for (int i = 1100; i < 2000; i+=100){
-    //     mot1.writeMicroseconds(i);
-    //     Serial.println(i);
-    //     delay(1000);
-    // }
-
-    // for (int i = 2000; i > 1100; i-=100){
-    //     mot1.writeMicroseconds(i);
-    //     Serial.println(i);
-    //     delay(1000);
-    // }
-    // mot1.writeMicroseconds(1000);
-    // delay(1000);
 
 
     motors.set_motorPWM(motors.motor1, 1100);
@@ -89,12 +69,4 @@ void loop() {
 
 
 
-}
-
-void calibrateESC(){
-  mot1.writeMicroseconds(2000); // Send max throttle
-  delay(2000);                      // Wait for ESC to register max throttle
-  mot1.writeMicroseconds(1000); // Send min throttle
-  delay(2000);                      // Wait for ESC to register min throttle
-  Serial.println("ESC Calibration Complete.");
 }
