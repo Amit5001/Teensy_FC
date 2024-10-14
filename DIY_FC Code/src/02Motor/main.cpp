@@ -1,72 +1,49 @@
-/*
-Change this to a struct with the following fields:
-- Motor Pin
-- Motor PWM
-
-Create a function that will calibrate the motor by:
-- Setting the motor to the maximum value
-- Waiting for 2 seconds
-- Setting the motor to the minimum value
-- Waiting for 5 seconds
-
-Create a function that will arm the motor by:
-- Setting the motor to the minimum value
-
-Create a function that will disarm the motor by:
-- Setting the motors to the off value
-
-Create a function that will set the motor to a specific value by:
-- Setting the motor to the value
-
-*/
-
-
 #include <Arduino.h>
-#include <Servo.h>
-#include <02Motor/Motor_type.h>
-//#include <AlfredoELRS.h>
 #include <Wire.h>
+#include <Servo.h>
+#include <AlfredoCRSF.h>
 
-// Pin and motor values
 #define MOTOR1_PIN 2
-#define MOTOR2_PIN 3
-#define MOTOR3_PIN 4
-#define MOTOR4_PIN 5
-#define ESC_FREQUENCY 50
-#define ESC_CALIBRATION 1
-#define CONTROLLER_ESC_CALIBRATION 0
+#define FREQUENCY 400
 
-Motors motors(ESC_FREQUENCY, MOTOR1_PIN, MOTOR2_PIN, MOTOR3_PIN, MOTOR4_PIN);
-Servo mot1;
+Servo motor1;
 
 void calibrateESC();
 
 void setup() {
   Serial.begin(115200);
-  delay(5000);
-  motors.Initialization(ESC_CALIBRATION, CONTROLLER_ESC_CALIBRATION);
-  delay(5000);
+  motor1.attach(MOTOR1_PIN, 900, 2000);
+  delay(1000);
   Serial.println("Starting Motor1");
-  // motors.set_motorPWM(motors.motor1, 768);
-  // delay(5000);
-  // motors.set_motorPWM(motors.motor1, 1060);
-  // delay(5000);
-  // mot1.attach(MOTOR1_PIN);
-  // int pwm = map(1000, motors.MOTOR_MIN, motors.MOTOR_MAX, 0, motors.PWM_MAX);
-  // mot1.writeMicroseconds(1000);
-  // delay(1000);
-  // calibrateESC();
-
-void loop() {
+  //calibrateESC();
+  motor1.writeMicroseconds(1500); // Stop signal. Necessary to arm the ESC
+  
+}
 
 
-    motors.set_motorPWM(motors.motor1, 1100);
-    delay(5000);
-    motors.set_motorPWM(motors.motor1, 1200);
-    delay(5000);
-    // motors.set_motorPWM(motors.motor1, 1460);
-    // delay(5000);
+void loop(){
 
+  motor1.writeMicroseconds(1100);
+  Serial.println("Set to 1100");
+  delay(2000);
+  motor1.writeMicroseconds(1200);
+  Serial.println("Set to 1200");
+  delay(2000);
+  motor1.writeMicroseconds(1300);
+  Serial.println("Set to 1300");
+  delay(2000);
+  motor1.writeMicroseconds(1600);
+  Serial.println("Set to 1600");
+  delay(2000);
+}
 
-
+void calibrateESC(){
+  Serial.println("Calibrating ESC");
+  motor1.writeMicroseconds(2000);
+  Serial.println("Set to 2000");
+  delay(20000);
+  motor1.writeMicroseconds(1000);
+  Serial.println("Set to 1000");
+  delay(10000);
+  Serial.println("ESC Calibration Complete");
 }

@@ -1,3 +1,27 @@
+/*
+Written by: Amit Gedj
+Date: 15.10.24
+
+Description: This file contains the definition of the different types used in the project.
+              It also contains the definition of the different rates used in the project.
+              The RATE_DO_EXECUTE macro is used to execute a certain code at a certain rate.
+              The different rates are defined in the RATE_XXX_HZ macros.
+              The different types are defined in the different structs.
+              The different structs are:
+                  - vec3_t: a 3D vector
+                  - quat_t: a quaternion
+                  - baro_t: a barometer measurement
+                  - Measurement_t: a struct containing the different measurements
+                  - flowMeasurement_t: a struct containing the flow measurements
+                  - tofMeasurement_t: a struct containing the TOF measurements
+                  - heightMeasurement_t: a struct containing the height measurements
+                  - attitude_t: a struct containing the attitude angles
+                  - state_t: a struct containing the state of the drone
+                  - StabStep_t: a type used to count the number of stabilization steps
+*/
+
+
+
 #ifndef VAR_TYPES_H
 #define VAR_TYPES_H
 

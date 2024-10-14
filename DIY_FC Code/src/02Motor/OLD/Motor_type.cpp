@@ -5,20 +5,32 @@
 
 
 void Motors::setup_pins(){
-    _motor1.motorS.attach(_motor1.pin,PWM_MIN,PWM_MAX);
-    _motor2.motorS.attach(_motor2.pin,PWM_MIN,PWM_MAX);
-    _motor3.motorS.attach(_motor3.pin,PWM_MIN,PWM_MAX);
-    _motor4.motorS.attach(_motor4.pin,PWM_MIN,PWM_MAX);
+    pinMode(_motor1.pin, OUTPUT);
+    pinMode(_motor2.pin, OUTPUT);
+    pinMode(_motor3.pin, OUTPUT);
+    pinMode(_motor4.pin, OUTPUT);
+    analogWriteFrequency(_motor1.pin, ESC_FREQUENCY);
+    analogWriteResolution(16);
+    analogWriteFrequency(_motor2.pin, ESC_FREQUENCY);
+    analogWriteResolution(16);  
+    analogWriteFrequency(_motor3.pin, ESC_FREQUENCY);
+    analogWriteResolution(16);
+    analogWriteFrequency(_motor4.pin, ESC_FREQUENCY);
+    analogWriteResolution(16);
+    Serial.println("Setting up Motor Pins for PWM");
+    Serial.println("Frequency: "); Serial.println(ESC_FREQUENCY);
     delay(1000);
 }
 
 void Motors::set_motorPWM(Motor_t* motor, int PWM_val){
+    int PWM = map(PWM_val,MOTOR_MIN,MOTOR_MAX,0,PWM_MAX);
     motor->PWM_val = PWM_val;
-    motor->motorS.writeMicroseconds(PWM_val);
-    //Serial.print("Setting Motor "); Serial.print(motor->pin); Serial.print(" to "); Serial.println(PWM_val);
+    //analogWrite(motor->pin, PWM_val*4096/4000);
+    analogWrite(motor->pin, PWM);
+    Serial.print("Setting Motor "); Serial.print(motor->pin); Serial.print(" to "); Serial.println(PWM_val);
 }
 
-void Motors::ESC_calibration(){
+void Motors::motor_calibration(){
     Serial.println("Starting Motor Calibration");
     set_motorPWM(&_motor1, MOTOR_MAX);
     set_motorPWM(&_motor2, MOTOR_MAX);
@@ -36,23 +48,12 @@ void Motors::ESC_calibration(){
 void Motors::Initialization(int calibrate, int contoller_calibration){
     setup_pins();
     if (calibrate == 1){
-        ESC_calibration();
+        motor_calibration();
     }
-    // if (contoller_calibration == 1){
-    //     ESC_ControllerCalibration(1500); // Need to change to a variable that contains the controller value.
-    // }
+    // Serial.print("_Motor 1 Pin: "); Serial.println(_motor1.pin);
+    // Serial.print("_Motor 1 PWM: "); Serial.println(_motor1.PWM_val);
 
 }
-
-// void Motors::ESC_ControllerCalibration(int throttle){
-//     Serial.println("Starting Controller Calibration");
-//     set_motorPWM(&_motor1, throttle);
-//     set_motorPWM(&_motor2, throttle);
-//     set_motorPWM(&_motor3, throttle);
-//     set_motorPWM(&_motor4, throttle);
-//     delay(5000);
-//     Serial.println("Controller Calibration Complete");
-// }
 
 void Motors::Arm(){
     Serial.println("Arming Motors");
