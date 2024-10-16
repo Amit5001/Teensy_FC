@@ -20,15 +20,15 @@ void Motors::set_motorPWM(Motor_t* motor, int PWM_val){
 
 void Motors::ESC_calibration(){
     Serial.println("Starting Motor Calibration");
-    set_motorPWM(&_motor1, MOTOR_MAX);
-    set_motorPWM(&_motor2, MOTOR_MAX);
-    set_motorPWM(&_motor3, MOTOR_MAX);
-    set_motorPWM(&_motor4, MOTOR_MAX);
+    set_motorPWM(&_motor1, PWM_MAX);
+    set_motorPWM(&_motor2, PWM_MAX);
+    set_motorPWM(&_motor3, PWM_MAX);
+    set_motorPWM(&_motor4, PWM_MAX);
     delay(15000);
-    set_motorPWM(&_motor1, MOTOR_MIN);
-    set_motorPWM(&_motor2, MOTOR_MIN);
-    set_motorPWM(&_motor3, MOTOR_MIN);
-    set_motorPWM(&_motor4, MOTOR_MIN);
+    set_motorPWM(&_motor1, PWM_MIN);
+    set_motorPWM(&_motor2, PWM_MIN);
+    set_motorPWM(&_motor3, PWM_MIN);
+    set_motorPWM(&_motor4, PWM_MIN);
     delay(10000);
     Serial.println("Motor Calibration Complete");
 }

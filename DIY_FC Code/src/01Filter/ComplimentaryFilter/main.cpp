@@ -15,7 +15,8 @@ LPS baro;
 
 //IMU Data Conversion
 #define POL_GYRO_SENS 0.00875f // FS = 250
-#define POL_ACC_SENS 0.122/1000f // FS = 4g, 0.122 mg/LSB
+// #define POL_GYRO_SENS 0.0175f // FS = 500
+#define POL_ACC_SENS 0.122/1000.0f // FS = 4g, 0.122 mg/LSB
 #define POL_MAG_SENS_4 1/6842.0f
 #define POL_MAG_SENS_12 1/2281.0f
 
@@ -33,12 +34,16 @@ float dt = 0.001;
 // Function prototypes
 void Update_Measurement();
 void GyroMagCalibration();
+unsigned long prev_time = 0;
+unsigned long loop_count = 0;
+unsigned long interval = 1000;
 
 
 void setup() {
   Serial.begin(115200);
   // Seting pins 24 and 25 to be used as I2C
   Wire.begin();
+  Wire.setClock(400000); // Increase I2C clock speed to 400 kHz
   
   // Initialize IMU
   if (!IMU.init()){
@@ -49,21 +54,35 @@ void setup() {
     Serial.println("Failed to detect and initialize Magnetometer!");
     while (1);
     }
-  if (!baro.init()){
-    Serial.println("Failed to detect and initialize Barometer!");
-    while (1);
-    }
+  // if (!baro.init()){
+  //   Serial.println("Failed to detect and initialize Barometer!");
+  //   while (1);
+  //   }
   IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
+// Set Gyroscope ODR to 1.66 kHz
+  IMU.writeReg(LSM6::CTRL2_G, 0b10010000);  // 0b1000 for ODR 1.66 kHz, 0b0001 for 250 dps range
+  // Set Accelerometer ODR to 1.66 kHz
+  IMU.writeReg(LSM6::CTRL1_XL, 0b10011000);  // 0b1000 for ODR 1.66 kHz, 0b0001 for 4g range
+
   mag.enableDefault();
-  mag.writeReg(LIS3MDL::CTRL_REG1, 0x7c); // 1 KHz, high performance mode
+  mag.writeReg(LIS3MDL::CTRL_REG1, 0b11100110); // 1 KHz, high performance mode
   mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 12 gauss
-  baro.enableDefault();
+  // mag.writeReg(LIS3MDL::CTRL_REG5, 0b10000000); // High read mode.
+  // baro.enableDefault();
   GyroMagCalibration();
 
 }
 
 
 void loop(){
+  loop_count++;
+   unsigned long current_time = millis();
+  if (current_time - prev_time >= interval){
+    // Serial.print("Loop rate: "); Serial.print(loop_count); //Serial.println(" Hz");
+    prev_time = current_time;
+    loop_count = 0;
+  }
+
 
     // Update the measurement
     Update_Measurement();
@@ -72,18 +91,27 @@ void loop(){
     UpdateQ(&meas, dt);
     
     // Get the quaternion
-    GetQuaternion(&q_est);
+    // GetQuaternion(&q_est);
     
-    // Get the Euler angles
-    GetEulerRPYdeg(&euler, meas.initial_heading);
-    
-    //Print the Euler angles
+    // // Get the Euler angles
+    GetEulerRPYdeg(&euler, meas.initial_heading); 
+    // // //Print the Euler angles
     Serial.print("Roll: ");
     Serial.print(euler.x);
     Serial.print(" Pitch: ");
     Serial.print(euler.y);
     Serial.print(" Yaw: ");
     Serial.println(euler.z);
+
+    // GetQuaternion(&q_est);
+    // Serial.print("Quaternion: ");
+    // Serial.print(q_est.w);
+    // Serial.print(" ");
+    // Serial.print(q_est.x);
+    // Serial.print(" ");
+    // Serial.print(q_est.y);
+    // Serial.print(" ");
+    // Serial.println(q_est.z);
 
 
 }
@@ -93,11 +121,7 @@ void Update_Measurement(){
       // Read IMU data
     IMU.read();
     mag.read();    
-    // Convert IMU data
-    // Removing the bias from the accelerometer is no bueno. It will cause the filter to diverge
-    // meas.acc.x = IMU.a.x * POL_ACC_SENS - meas.acc_bias.x;
-    // meas.acc.y = IMU.a.y * POL_ACC_SENS - meas.acc_bias.y;
-    // meas.acc.z = IMU.a.z * POL_ACC_SENS - meas.acc_bias.z;
+
     meas.acc.x = IMU.a.x * POL_ACC_SENS;
     meas.acc.y = IMU.a.y * POL_ACC_SENS;
     meas.acc.z = IMU.a.z * POL_ACC_SENS;
@@ -107,16 +131,14 @@ void Update_Measurement(){
     meas.mag.x = mag.m.x * POL_MAG_SENS_4 - meas.mag_bias.x;
     meas.mag.y = mag.m.y * POL_MAG_SENS_4 - meas.mag_bias.y;
     meas.mag.z = mag.m.z * POL_MAG_SENS_4 - meas.mag_bias.z;
-    // meas.mag.x = mag.m.x * POL_MAG_SENS_4;
-    // meas.mag.y = mag.m.y * POL_MAG_SENS_4;
-    // meas.mag.z = mag.m.z * POL_MAG_SENS_4;
-    meas.baro_data.pressure = baro.readPressureMillibars();
-    meas.baro_data.temperature = baro.readTemperatureC();
-    meas.baro_data.asl = baro.pressureToAltitudeMeters(meas.baro_data.pressure);
+    // meas.baro_data.pressure = baro.readPressureMillibars();
+    // meas.baro_data.temperature = baro.readTemperatureC();
+    // meas.baro_data.asl = baro.pressureToAltitudeMeters(meas.baro_data.pressure);
 }
 
 
 void GyroMagCalibration(){
+    Serial.println("Starting Gyro calibration");
     int start_time = millis();
     int num_samples = 0;
     while (millis() - start_time < 10000){

@@ -5,6 +5,11 @@
 #include <Arduino.h>
 #include <Servo.h>
 
+#define PWM_RES15 15
+#define PWM_RES16 16
+#define PWM_RES12 12
+#define PWM_RES8 8
+
 typedef struct Motor_s{
     Servo motorS;
     int pin;
@@ -14,13 +19,26 @@ typedef struct Motor_s{
 
 class Motors {
     private:
-        int MOTOR_MIN = 1060;
-        int MOTOR_MAX = 1860;
+        // int MOTOR_MIN = 1060;
+        // int MOTOR_MAX = 1860;
+        int MOTOR_MIN = 1000;
+        int MOTOR_MAX = 2000;
         int MOTOR_OFF = 0;
         int MOTOR_ARM = 1100;
         int ESC_FREQUENCY;
-        //int PWM_MAX = 4095;
-        int PWM_MAX = 65535;
+        if (PWM_RES15){
+            int PWM_RESOLUTION = 15; // Max PWM resolution of the teensy4.1
+            int PWM_MAX = 32767;
+        } else if (PWM_RES16){
+            int PWM_RESOLUTION = 16; // Max PWM resolution of the teensy4.1
+            int PWM_MAX = 65535;
+        } else if (PWM_RES12){
+            int PWM_RESOLUTION = 12; // Max PWM resolution of the teensy4.1
+            int PWM_MAX = 4095;
+        } else if (PWM_RES8){
+            int PWM_RESOLUTION = 18; // Max PWM resolution of the teensy4.1
+            int PWM_MAX = 255;
+        }
 
         Motor_t _motor1;
         Motor_t _motor2;
