@@ -1,45 +1,19 @@
 #include <Arduino.h>
-#include <01Filter/ComplimentaryFilter/CompFilter.h>
+#include <01Filter/ComplimentaryClass/CompClass.h>
 #include <Var_types.h>
 
-#define PI 3.14159265358979323846f
-#define rad2deg 180.0f/PI
-#define deg2rad PI/180.0f
-
-#define USE_MAG 1
-
-
-// Adaptive Beta parameters, LPF and HPF:
-#define LOW_MOTION 0.001*245.0f
-#define HIGH_MOTION 0.008*245.0f
-#define HIGH_BETA 0.8f
-#define LOW_BETA 0.01f
-#define DEFAULT_BETA 0.04f
-#define ALPHA_LPF 0.25f
-#define ALPHA_HPF 0.75f
-
-quat_t q = {0.0, 0.0, 0.0, 1.0};
-
-// Params for HPF and LPF:
-vec3_t accFiltered = {0.0, 0.0, 0.0};
-vec3_t gyroFiltered = {0.0, 0.0, 0.0};
-vec3_t magFiltered = {0.0, 0.0, 0.0};
-float gyroNorm = 0.0;
-float drift = 0.0;
-float driftRate = 0.005;
-
-
-static float gravX , gravY, gravZ; // Unit vector in the direction of the estimated gravity
 
 //static float baseZaccel = 1.0; // Base acceleration in the Z direction
 
-void UpdateQ(Measurement_t* meas, float dt){
+void CompFilter::UpdateQ(Measurement_t* meas, float dt){
     float recipNorm;
     float s0, s1, s2, s3;
     float qDot1, qDot2, qDot3, qDot4;
     float _2qw, _2qx, _2qy, _2qz, _4qw, _4qx, _4qy, _8qx, _8qy, qwqw, qxqx, qyqy, qzqz;
+    float _2qwmx, _2qwmy, _2qwmz, _2qxmx, _2q0, _2q1, _2q2, _2q3, _2q0q2, _2q2q3, q0q0, q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3, _2q0q1, _2q0q3;
+    float hx, hy, _2bx, _2bz, _4bx, _4bz;
 
-    // Initial Filtering
+    // Initial Filtering - Not a must nut it helps.
     InitialFiltering(meas);
 
 
@@ -97,18 +71,61 @@ void UpdateQ(Measurement_t* meas, float dt){
     }
     if(USE_MAG &&( meas->mag.x != 0.0 && meas->mag.y != 0.0 && meas->mag.z != 0.0) && (gyroNorm > HIGH_MOTION)){
     //if(USE_MAG &&( meas->mag.x != 0.0 && meas->mag.y != 0.0 && meas->mag.z != 0.0)){
-        float yawMag = atan2f(meas->mag.y, meas->mag.x);
-        float yawError = yawMag - atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z);
-        // if (yawError > PI) yawError -= 2*PI;
-        // if (yawError < -PI) yawError += 2*PI;
-        if(yawError > 0.1*deg2rad) BETA = HIGH_BETA;
-        BETA = DEFAULT_BETA;
 
-        // Apply feedback step (Magnetometer) Only for Yaw related parameters
-        qDot1 -= BETA * yawError;
-        // qDot2 -= BETA * yawError;
-        // qDot3 -= BETA * yawError;
-        qDot4 -= BETA * yawError;
+        // Normalise magnetometer measurement
+        recipNorm = invSqrt(meas->mag.x * meas->mag.x + meas->mag.y * meas->mag.y + meas->mag.z * meas->mag.z);
+        meas->mag.x *= recipNorm;
+        meas->mag.y *= recipNorm;
+        meas->mag.z *= recipNorm;
+
+        _2qwmx = 2.0f * q.w * meas->mag.x;
+        _2qwmy = 2.0f * q.w * meas->mag.y;
+        _2qwmz = 2.0f * q.w * meas->mag.z;
+        _2qxmx = 2.0f * q.x * meas->mag.x;
+        _2q0 = 2.0f * q.w;
+        _2q1 = 2.0f * q.x;
+        _2q2 = 2.0f * q.y;
+        _2q3 = 2.0f * q.z;
+        _2q0q2 = 2.0f * q.w * q.y;
+        _2q0q1 = 2.0f * q.w * q.x;
+        _2q0q3 = 2.0f * q.w * q.z;
+        _2q2q3 = 2.0f * q.y * q.z;
+        q0q0 = q.w * q.w;
+        q0q1 = q.w * q.x;
+        q0q2 = q.w * q.y;
+        q0q3 = q.w * q.z;
+        q1q1 = q.x * q.x;
+        q1q2 = q.x * q.y;
+        q1q3 = q.x * q.z;
+        q2q2 = q.y * q.y;
+        q2q3 = q.y * q.z;
+        q3q3 = q.z * q.z;
+
+        // Reference direction of Earth's magnetic field
+        hx = meas->mag.x * q0q0 - _2qwmy * q.z + _2qwmz * q.y + meas->mag.x * q1q1 + _2qxmx * q.y + meas->mag.x * q2q2 - meas->mag.x * q3q3;
+        hy = _2qwmx * q.z + meas->mag.y * q0q0 - _2qwmz * q.x + _2q0 * meas->mag.y * q1q1 - meas->mag.y * q2q2 + meas->mag.y * q3q3 + _2qxmx * q.z;
+        _2bx = sqrtf(hx * hx + hy * hy);
+        _2bz = -_2qwmx * q.y + _2q0 * meas->mag.z * q1q1 + _2q0 * meas->mag.z * q2q2 + meas->mag.z * q3q3 + _2qxmx * q.y - meas->mag.z * q0q0;
+        _4bx = 2.0f * _2bx;
+        _4bz = 2.0f * _2bz;
+
+        // Gradient decent algorithm corrective step
+        s0 = - _2bz * q.y * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - meas->mag.z) + (-_2bx * q.z + _2bz * q.x) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - meas->mag.x);
+        s1 = - 4.0f * q.x * (1 - 2.0f * q1q1 - 2.0f * q2q2 - meas->mag.z) + _2bz * q.z * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - meas->mag.z) + (_2bx * q.y + _2bz * q.x) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - meas->mag.x);
+        s2 = - 4.0f * q.y * (1 - 2.0f * q1q1 - 2.0f * q2q2 - meas->mag.z) + (-_2bx * q.y + _2bz * q.x) * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - meas->mag.z) + (_2bx * q.z + _2bz * q.x) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - meas->mag.x);
+        s3 = (-_4bx * q.y * (2.0f * q1q2 - _2q0q3 - meas->mag.z) + _4bz * q.z * (2.0f * q1q3 - _2q0q2 - meas->mag.x) - _4bx * q.x * (2.0f * q2q3 - _2q0q1 - meas->mag.y)) + (-_4bx * q.z + _4bz * q.x) * (_4bx * (0.5f - q2q2 - q3q3) + _4bz * (q1q3 - q0q2) - meas->mag.x);
+        recipNorm = invSqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3); // normalise step magnitude
+        s0 *= recipNorm;
+        s1 *= recipNorm;
+        s2 *= recipNorm;
+        s3 *= recipNorm;
+
+
+        // Apply feedback step
+        qDot1 -= BETA * s0;
+        qDot2 -= BETA * s1;
+        qDot3 -= BETA * s2;
+        qDot4 -= BETA * s3;
 
     }
 
@@ -133,7 +150,7 @@ void UpdateQ(Measurement_t* meas, float dt){
 
 
 // Returning the estimated quaternion
-void GetQuaternion(quat_t* q_){
+void CompFilter::GetQuaternion(quat_t* q_){
     q_->x = q.x;
     q_->y = q.y;
     q_->z = q.z;
@@ -141,7 +158,7 @@ void GetQuaternion(quat_t* q_){
 
 }
 
-void GetEulerRPYrad(vec3_t* rpy){
+void CompFilter::GetEulerRPYrad(vec3_t* rpy){
     float gx = gravX;
     float gy = gravY;
     float gz = gravZ;
@@ -155,14 +172,13 @@ void GetEulerRPYrad(vec3_t* rpy){
     rpy->x = atan2f(gy, gz);
 }
 
-void GetEulerRPYdeg(vec3_t* rpy, float initial_heading){
+void CompFilter::GetEulerRPYdeg(vec3_t* rpy, float initial_heading){
     float gx = gravX;
     float gy = gravY;
     float gz = gravZ;
-    if (gx > 1) gx = 1;
-    if (gx < -1) gx = -1;
+    // if (gx > 1) gx = 1;
+    // if (gx < -1) gx = -1;
 
-    // Currently returend in radians, can be converted to degrees by multiplying by rad2deg
     rpy->z = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z) * rad2deg;
         if (rpy->z < 0) {
         rpy->z += 360.0f;
@@ -174,7 +190,7 @@ void GetEulerRPYdeg(vec3_t* rpy, float initial_heading){
 
 //---------------------------------------------------------------------------------------------------
 // Inverse square root function:
-float invSqrt(float x) {
+float CompFilter::invSqrt(float x) {
     float halfx = 0.5f * x;
     float y = x;
     long i = *(long*)&y;
@@ -184,16 +200,16 @@ float invSqrt(float x) {
     return y;
 }
 
-float GetAccZ(float ax, float ay, float az) {
+float CompFilter::GetAccZ(float ax, float ay, float az) {
     return (ax*gravX + ay*gravY + az*gravZ);
 }
 
-void estimatedGravityDir(float* gx, float* gy, float*gz){
+void CompFilter::estimatedGravityDir(float* gx, float* gy, float*gz){
     *gx = 2*(q.x*q.z - q.y*q.w);
     *gy = 2*(q.y*q.z + q.x*q.w);
     *gz = q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z;
 }
-float calculateDynamicBeta(Measurement_t meas) {
+float CompFilter::calculateDynamicBeta(Measurement_t meas) {
     // Compute the norm (magnitude) of the gyroscope vector
     gyroNorm = sqrtf(meas.gyro.x * meas.gyro.x + meas.gyro.y * meas.gyro.y + meas.gyro.z * meas.gyro.z);
 
@@ -214,7 +230,7 @@ float calculateDynamicBeta(Measurement_t meas) {
 }
 
 
-void InitialFiltering(Measurement_t* meas){
+void CompFilter::InitialFiltering(Measurement_t* meas){
      // Apply Low-pass Filter to Accel
     accFiltered.x = (1 - ALPHA_LPF) * accFiltered.x + ALPHA_LPF * meas->acc.x;
     accFiltered.y = (1 - ALPHA_LPF) * accFiltered.y + ALPHA_LPF * meas->acc.y;
@@ -245,4 +261,3 @@ void InitialFiltering(Measurement_t* meas){
         meas->mag.z = magFiltered.z;
     }
 }
-

@@ -7,6 +7,7 @@ INT_SIZE = struct.calcsize('i')
 
 class UDPServer:
     def __init__(self, server_addr, client_addr):
+        # Initialize server addresses
         self.server_addr = server_addr
         self.client_addr = client_addr
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -55,54 +56,64 @@ class UDPServer:
 
     def casting(self, message):
         # Casting the messages
-        msg_type = chr(message[0])
+        message_type = chr(message[0])
         message = message[1:]
+        messages_struct_float = struct.unpack("f" * (len(message) // FLOAT_SIZE), message)
+        messages_struct_int = struct.unpack("i" * (len(message) // INT_SIZE), message)
 
-        # Unpacking float or integer data depending on the message type
-        if msg_type in ['e', 'p', 'q']:
-            unpacked_data = struct.unpack("f" * (len(message) // FLOAT_SIZE), message)
-        elif msg_type == 'r':
-            unpacked_data = struct.unpack("i" * (len(message) // INT_SIZE), message)
-        
-        if msg_type == 'e':  # Euler angles
-            self.euler_msg = unpacked_data[:3]
-            self.display_euler(self.euler_msg)
-            
-        elif msg_type == 'p':  # Pololu IMU data
-            self.polulo_msg = unpacked_data[:6]
-            self.display_imu(self.polulo_msg)
-            
-        elif msg_type == 'q':  # Quaternion data
-            self.quaternion_msg = unpacked_data[:4]
-            self.display_quaternion(self.quaternion_msg)
-            
-        elif msg_type == 'r':  # RC channel data
-            self.rc_ch_msg = unpacked_data[:16]
-            self.display_rc(self.rc_ch_msg)
+        if message_type == 'e':
+            self.euler_msg = messages_struct_float[:3]
+            self.publish_euler(self.euler_msg)
+                
+        elif message_type == 'p':
+            self.polulo_msg = messages_struct_float[:6]
+            self.publish_imu(self.polulo_msg)
 
-    # Functions to display or process the data
-    def display_imu(self, imu_data):
-        print(f"IMU Data: Acceleration - {imu_data[:3]}, Angular Velocity - {imu_data[3:]}")
+        elif message_type == 'q':
+            self.quaternion_msg = messages_struct_float[:4]
+            self.publish_quaternion(self.quaternion_msg)                
 
-    def display_quaternion(self, quaternion_data):
-        print(f"Quaternion Data: {quaternion_data}")
+        elif message_type == 'r':
+            self.rc_ch_msg = messages_struct_int[:16]
+            self.publish_rc(self.rc_ch_msg)
 
-    def display_euler(self, euler_data):
-        print(f"Euler Angles: {euler_data}")
+    def publish_imu(self, imu_data):
+        imu_msg = {
+            'linear_acceleration': {'x': imu_data[0], 'y': imu_data[1], 'z': imu_data[2]},
+            'angular_velocity': {'x': imu_data[3], 'y': imu_data[4], 'z': imu_data[5]},
+        }
+        print(f"IMU Data: {imu_msg}")
 
-    def display_rc(self, rc_data):
-        print(f"RC Channels: {rc_data}")
+    def publish_quaternion(self, quaternion_data):
+        quat_msg = {
+            'x': quaternion_data[0],
+            'y': quaternion_data[1],
+            'z': quaternion_data[2],
+            'w': quaternion_data[3]
+        }
+        print(f"Quaternion Data: {quat_msg}")
+
+    def publish_euler(self, euler_data):
+        euler_msg = {
+            'x': euler_data[0],
+            'y': euler_data[1],
+            'z': euler_data[2]
+        }
+        print(f"Euler Angles: {euler_msg}")
+
+    def publish_rc(self, rc_data):
+        rc_msg = {'rc_channels': rc_data}
+        print(f"RC Channels: {rc_msg}")
 
 class JoyListener:
     def __init__(self, udp_server):
         self.udp_server = udp_server
-        print('Listening for joystick data...')
 
-    def process_joy_data(self, axes, buttons):
+    def joy_callback(self, axes, buttons):
+        # Convert joystick axes to a byte array and send it over UDP
         axis_byte_array = b''.join([struct.pack('f', f) for f in axes])
         self.udp_server.sock.sendto(axis_byte_array, self.udp_server.client_addr)
-        print(f'Sent Joystick Data: Axes - {axes}, Buttons - {buttons}')
-
+        print(f"Sent joystick axes: {axes}")
 
 def start_udp_server():
     # Create and start the UDP server
@@ -113,11 +124,8 @@ def start_udp_server():
     # Create the JoyListener
     joy_listener = JoyListener(server)
 
-    # Simulate joystick data processing (replace this with actual joystick input handling)
-    example_axes = [0.5, -0.2, 0.0]
-    example_buttons = [1, 0, 0, 1]
-    joy_listener.process_joy_data(example_axes, example_buttons)
-
+    # Simulate joystick data and send it
+    server.receiver()
 
 if __name__ == "__main__":
     start_udp_server()
