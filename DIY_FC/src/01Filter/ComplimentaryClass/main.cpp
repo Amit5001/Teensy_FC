@@ -20,9 +20,11 @@
 
 
 //IMU Data Conversion
-#define POL_GYRO_SENS 0.00875f // FS = 250
+#define POL_GYRO_SENS 4.376/1000.0f // FS = 125
+// #define POL_GYRO_SENS 0.00875f // FS = 250
 // #define POL_GYRO_SENS 0.0175f // FS = 500
 #define POL_ACC_SENS 0.122/1000.0f // FS = 4g, 0.122 mg/LSB
+#define POL_ACC_SENS 0.061/1000.0f // FS = 2g, 0.061 mg/LSB
 #define POL_MAG_SENS_4 1/6842.0f
 #define POL_MAG_SENS_12 1/2281.0f
 
@@ -140,13 +142,13 @@ void setup() {
   //   }
   IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
 // Set Gyroscope ODR to 1.66 kHz
-  IMU.writeReg(LSM6::CTRL2_G, 0b10010000);  // 0b1000 for ODR 1.66 kHz, 0b0001 for 250 dps range
+  IMU.writeReg(LSM6::CTRL2_G, 0b10000000);  // 0b1000 for ODR 1.66 kHz, 0b000 for 125 dps range
   // Set Accelerometer ODR to 1.66 kHz
-  IMU.writeReg(LSM6::CTRL1_XL, 0b10011000);  // 0b1000 for ODR 1.66 kHz, 0b0001 for 4g range
+  IMU.writeReg(LSM6::CTRL1_XL, 0b10000000);  // 0b1000 for ODR 1.66 kHz, 0b0000 for 2g range
 
   mag.enableDefault();
   mag.writeReg(LIS3MDL::CTRL_REG1, 0b11100110); // 1 KHz, high performance mode
-  mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 12 gauss
+  mag.writeReg(LIS3MDL::CTRL_REG2,0x00); // +- 4 gauss
   // baro.enableDefault();
   GyroMagCalibration();
 

@@ -10,7 +10,7 @@
 #define HIGH_MOTION 0.008*245.0f
 #define HIGH_BETA 1.2f
 #define LOW_BETA 0.01f
-#define DEFAULT_BETA 0.04f
+#define DEFAULT_BETA 0.1f
 #define ALPHA_LPF 0.25f
 #define ALPHA_HPF 0.75f
 

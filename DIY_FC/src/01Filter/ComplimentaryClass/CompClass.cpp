@@ -180,9 +180,9 @@ void CompFilter::GetEulerRPYdeg(vec3_t* rpy, float initial_heading){
     // if (gx < -1) gx = -1;
 
     rpy->z = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z) * rad2deg;
-        if (rpy->z < 0) {
-        rpy->z += 360.0f;
-    }
+    //     if (rpy->z < 0) {
+    //     rpy->z += 360.0f;
+    // }
     //rpy->y = asinf(gx) * rad2deg;
     rpy->y = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z)) * rad2deg;
     rpy->x = atan2f(gy, gz) * rad2deg;

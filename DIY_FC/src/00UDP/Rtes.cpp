@@ -140,7 +140,9 @@ void Rtes::beginEthernet()
     }
 
     // Attempting to initialize Ethernet connection
-    while (!qindesign::network::Ethernet.begin(macAddress, address.ip))
+    IPAddress subnet(255, 255, 255, 0); // Example subnet mask
+    IPAddress gateway(192, 168, 1, 1);  // Example gateway
+    while (!qindesign::network::Ethernet.begin(macAddress, address.ip, subnet, gateway))
     {
         Serial.println("Failed to configure Ethernet using static IP. Retrying...");
     }
@@ -206,7 +208,7 @@ void Rtes::handleUnknownPacket(SocketAddress &address, char *data)
 
         // Start time for when sent
         //ackPendingAddresses.insert(std::pair(address, millis()));
-        ackPendingAddresses.insert(std::make_pair(address, millis()));
+        ackPendingAddresses.insert(std::pair(address, millis()));
        
         return;
     }
@@ -230,7 +232,7 @@ void Rtes::handleUnknownPacket(SocketAddress &address, char *data)
 
             // Create a session between them.
             //sessions.insert(std::pair(address, session));
-            sessions.insert(std::make_pair(address, session));
+            sessions.insert(std::pair(address, session));
 
             // Remove address from the ack pending addresses
             ackPendingAddresses.erase(address);
