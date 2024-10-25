@@ -20,13 +20,13 @@
 
 
 //IMU Data Conversion
-#define POL_GYRO_SENS 4.376/1000.0f // FS = 125
-// #define POL_GYRO_SENS 0.00875f // FS = 250
+#define POL_GYRO_SENS 4.375/1000.0f // FS = 125
+#define POL_GYRO_SENS 0.00875f // FS = 250
 // #define POL_GYRO_SENS 0.0175f // FS = 500
-#define POL_ACC_SENS 0.122/1000.0f // FS = 4g, 0.122 mg/LSB
 #define POL_ACC_SENS 0.061/1000.0f // FS = 2g, 0.061 mg/LSB
-#define POL_MAG_SENS_4 1/6842.0f
-#define POL_MAG_SENS_12 1/2281.0f
+// #define POL_ACC_SENS 0.122/1000.0f // FS = 4g, 0.122 mg/LSB
+#define POL_MAG_SENS 1/6842.0f
+// #define POL_MAG_SENS 1/2281.0f
 
 //Unit Conversion
 #define PI 3.14159265358979323846f
@@ -41,7 +41,7 @@
 #define MPU_TICK_RATE 10000
 #define MAG 'm'
 #define POLOLU 'p'
-#define EULER 'e'
+#define euler 'e'
 #define RC 'r'
 #define RC_ros 'n'
 #define Quaternion 'q'
@@ -62,8 +62,12 @@ LPS baro;
 CompFilter Pololu_filter(true);
 
 
-float dt = 0.001;
-float previous_time, current_time;
+
+
+
+float dt = 1/1100.0f;
+float lastTime = 0;
+float loopCount = 0;
 
 /*
 ------------------------------------------ Prototypes ------------------------------------------
@@ -82,7 +86,7 @@ std::vector<uint8_t> intToBytes(int* pIntArray, size_t size);
 */
 #if UDP_BRIDGE ==1
 
-constexpr uint8_t IP_ADDRESS[4] = {192, 168, 1, 199};
+constexpr uint8_t IP_ADDRESS[4] = {192, 168,1, 199};
 constexpr uint16_t PORT_NUMBER = 8888;
 const SocketAddress SOCKET_ADDRESS = SocketAddress(IP_ADDRESS, PORT_NUMBER);
 Rtes rtesSocket(SOCKET_ADDRESS);
@@ -121,11 +125,13 @@ void setup() {
   Wire.begin();
   Wire.setClock(400000);
 
-  // Initialize UDP
+
+  /// start the connection 
   #if UDP_BRIDGE == 1 
-    rtesSocket.begin(1);
-    rtesSocket.onConnection(onConnect);
+  rtesSocket.begin(1);
+  rtesSocket.onConnection(onConnect);
   #endif
+
   
   // Initialize IMU
   if (!IMU.init()){
@@ -141,25 +147,33 @@ void setup() {
   //   while (1);
   //   }
   IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
-// Set Gyroscope ODR to 1.66 kHz
-  IMU.writeReg(LSM6::CTRL2_G, 0b10000000);  // 0b1000 for ODR 1.66 kHz, 0b000 for 125 dps range
-  // Set Accelerometer ODR to 1.66 kHz
-  IMU.writeReg(LSM6::CTRL1_XL, 0b10000000);  // 0b1000 for ODR 1.66 kHz, 0b0000 for 2g range
+  IMU.writeReg(LSM6::CTRL2_G, 0b10100000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 125 dps range
+  IMU.writeReg(LSM6::CTRL1_XL, 0b10100000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 2g range
+  // IMU.writeReg(LSM6::CTRL1_XL, 0b10110000); // Set ODR to 3.33 kHz, FS = ±2 g (if unchanged)
+  // IMU.writeReg(LSM6::CTRL2_G, 0b10110000);  // Set ODR to 3.33 kHz, FS = 125 dps (if unchanged)
 
   mag.enableDefault();
   mag.writeReg(LIS3MDL::CTRL_REG1, 0b11100110); // 1 KHz, high performance mode
-  mag.writeReg(LIS3MDL::CTRL_REG2,0x00); // +- 4 gauss
+  mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 4 gauss
   // baro.enableDefault();
   GyroMagCalibration();
-
-  previous_time = millis();
 
 }
 
 
 void loop(){
-    current_time = millis();
-    dt = (current_time - previous_time)/1000.0;
+    // loopCount++;
+
+    // if (millis() - lastTime >= 1000) {
+    //     // Print the loop rate
+    //     Serial.print("Loop Rate: ");
+    //     Serial.print(loopCount);
+    //     Serial.println(" iterations/second");
+
+    //     // Reset the count and last time
+    //     loopCount = 0;
+    //     lastTime = millis();
+    // }
     // Update the measurement
     Update_Measurement();
     
@@ -167,27 +181,25 @@ void loop(){
     Pololu_filter.UpdateQ(&meas, dt);
         
     // // Get the Euler angles
-    Pololu_filter.GetEulerRPYdeg(&euler_angles, meas.initial_heading); 
-    // // //Print the Euler angles
-    Serial.print("Roll: ");
+    Pololu_filter.GetEulerRPYrad(&euler_angles, meas.initial_heading); 
     Serial.print(euler_angles.x);
-    Serial.print(" Pitch: ");
+    Serial.print(" ");
     Serial.print(euler_angles.y);
-    Serial.print(" Yaw: ");
+    Serial.print(" ");
     Serial.println(euler_angles.z);
 
     Pololu_filter.GetQuaternion(&q_est);
-    Serial.print("Quaternion: ");
-    Serial.print(q_est.w);
-    Serial.print(" ");
-    Serial.print(q_est.x);
-    Serial.print(" ");
-    Serial.print(q_est.y);
-    Serial.print(" ");
-    Serial.println(q_est.z);
 
+    // Serial.print("Quaternion: ");
+    // Serial.print(q_est.w);
+    // Serial.print(" ");
+    // Serial.print(q_est.x);
+    // Serial.print(" ");
+    // Serial.print(q_est.y);
+    // Serial.print(" ");
+    // Serial.println(q_est.z);
     UDPSend2Py();
-    previous_time = current_time;
+
 
 
 }
@@ -203,9 +215,9 @@ void Update_Measurement(){
     meas.gyro.x = IMU.g.x * POL_GYRO_SENS * deg2rad-meas.gyro_bias.x;
     meas.gyro.y = IMU.g.y * POL_GYRO_SENS * deg2rad-meas.gyro_bias.y;
     meas.gyro.z = IMU.g.z * POL_GYRO_SENS * deg2rad-meas.gyro_bias.z;
-    meas.mag.x = mag.m.x * POL_MAG_SENS_4;
-    meas.mag.y = mag.m.y * POL_MAG_SENS_4;
-    meas.mag.z = mag.m.z * POL_MAG_SENS_4;
+    meas.mag.x = mag.m.x * POL_MAG_SENS - meas.mag_bias.x;
+    meas.mag.y = mag.m.y * POL_MAG_SENS - meas.mag_bias.y;
+    meas.mag.z = mag.m.z * POL_MAG_SENS - meas.mag_bias.z;
     // meas.baro_data.pressure = baro.readPressureMillibars();
     // meas.baro_data.temperature = baro.readTemperatureC();
     // meas.baro_data.asl = baro.pressureToAltitudeMeters(meas.baro_data.pressure);
@@ -227,9 +239,9 @@ void GyroMagCalibration(){
       meas.gyro_bias.y += (y- meas.gyro_bias.y)/num_samples;
       meas.gyro_bias.z += (z- meas.gyro_bias.z)/num_samples;
 
-      meas.mag_bias.x += (mag.m.x * POL_MAG_SENS_4 - meas.mag_bias.x)/num_samples;
-      meas.mag_bias.y += (mag.m.y * POL_MAG_SENS_4 - meas.mag_bias.y)/num_samples;
-      meas.mag_bias.z += (mag.m.z * POL_MAG_SENS_4 - meas.mag_bias.z)/num_samples;
+      meas.mag_bias.x += (mag.m.x * POL_MAG_SENS - meas.mag_bias.x)/num_samples;
+      meas.mag_bias.y += (mag.m.y * POL_MAG_SENS - meas.mag_bias.y)/num_samples;
+      meas.mag_bias.z += (mag.m.z * POL_MAG_SENS - meas.mag_bias.z)/num_samples;
 
       meas.acc_bias.x += (IMU.a.x * POL_ACC_SENS - meas.acc_bias.x)/num_samples;
       meas.acc_bias.y += (IMU.a.y * POL_ACC_SENS - meas.acc_bias.y)/num_samples;
@@ -297,7 +309,7 @@ void UDPSend2Py(){
         if (mag_bytes.size() != 0) currentSession->emitRaw(MAG, mag_bytes);
 
         // if (rc_bytes.size() != 0) currentSession->emitRaw(RC, rc_bytes);
-        if (euler_bytes.size() != 0) currentSession->emitRaw(EULER, euler_bytes);
+        if (euler_bytes.size() != 0) currentSession->emitRaw(euler, euler_bytes);
         if (quaternion_bytes.size() != 0) currentSession->emitRaw(Quaternion, quaternion_bytes);
 
       }

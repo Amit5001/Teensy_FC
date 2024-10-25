@@ -1,8 +1,10 @@
 #include <Arduino.h>
-#include <Var_types.h>
 #include <Wire.h>
+#include <Var_types.h>
 #include <01Filter/ComplimentaryClass/CompClass.h>
 #include <00UDP/Rtes.h>
+#include <AlfredoCRSF.h>
+
 
 #include <iostream>
 #include <cstdint>
@@ -18,11 +20,13 @@
 
 
 //IMU Data Conversion
-#define POL_GYRO_SENS 0.00875f // FS = 250
+#define POL_GYRO_SENS 4.375/1000.0f // FS = 125
+// #define POL_GYRO_SENS 0.00875f // FS = 250
 // #define POL_GYRO_SENS 0.0175f // FS = 500
-#define POL_ACC_SENS 0.122/1000.0f // FS = 4g, 0.122 mg/LSB
-#define POL_MAG_SENS_4 1/6842.0f
-#define POL_MAG_SENS_12 1/2281.0f
+// #define POL_ACC_SENS 0.122/1000.0f // FS = 4g, 0.122 mg/LSB
+#define POL_ACC_SENS 0.061/1000.0f // FS = 2g, 0.061 mg/LSB
+#define POL_MAG_SENS 1/6842.0f // FS = 4 gauss
+// #define POL_MAG_SENS 1/2281.0f // FS = 12 gauss
 
 //Unit Conversion
 #define PI 3.14159265358979323846f
@@ -37,7 +41,7 @@
 #define MPU_TICK_RATE 10000
 #define MAG 'm'
 #define POLOLU 'p'
-#define euler 'e'
+#define EULER 'e'
 #define RC 'r'
 #define RC_ros 'n'
 #define Quaternion 'q'
@@ -56,9 +60,10 @@ LIS3MDL mag;
 LPS baro;
 
 CompFilter Pololu_filter(true);
-// CompGilter 6050_filter(false);
 
-unsigned long dt = 0.001;
+
+float dt = 0.001;
+float previous_time, current_time;
 
 /*
 ------------------------------------------ Prototypes ------------------------------------------
@@ -67,7 +72,7 @@ unsigned long dt = 0.001;
 // Function prototypes
 void Update_Measurement();
 void GyroMagCalibration();
-void Send2Py();
+void UDPSend2Py();
 void convert_Measurment_to_byte();
 std::vector<uint8_t> floatsToBytes(float* pFloatArray, size_t size);
 std::vector<uint8_t> intToBytes(int* pIntArray, size_t size);
@@ -75,9 +80,9 @@ std::vector<uint8_t> intToBytes(int* pIntArray, size_t size);
 /*
 ------------------------------------------ UDP Setup ------------------------------------------
 */
-#if UDP_BRIDGE ==1 
+#if UDP_BRIDGE ==1
 
-constexpr uint8_t IP_ADDRESS[4] = {192, 168,1, 199};
+constexpr uint8_t IP_ADDRESS[4] = {192, 168, 1, 199};
 constexpr uint16_t PORT_NUMBER = 8888;
 const SocketAddress SOCKET_ADDRESS = SocketAddress(IP_ADDRESS, PORT_NUMBER);
 Rtes rtesSocket(SOCKET_ADDRESS);
@@ -110,13 +115,17 @@ std::vector<std::vector<float>> upsampleFusedIMUData(float* data, int numSamples
 /*
 ------------------------------------------ Functions ------------------------------------------
 */
-
-
 void setup() {
   Serial.begin(115200);
   // Seting pins 24 and 25 to be used as I2C
   Wire.begin();
-  Wire.setClock(400000); // Increase I2C clock speed to 400 kHz
+  Wire.setClock(400000);
+
+  // Initialize UDP
+  #if UDP_BRIDGE == 1 
+    rtesSocket.begin(1);
+    rtesSocket.onConnection(onConnect);
+  #endif
   
   // Initialize IMU
   if (!IMU.init()){
@@ -127,43 +136,37 @@ void setup() {
     Serial.println("Failed to detect and initialize Magnetometer!");
     while (1);
     }
-  if (!baro.init()){
-    Serial.println("Failed to detect and initialize Barometer!");
-    while (1);
-    }
+  // if (!baro.init()){
+  //   Serial.println("Failed to detect and initialize Barometer!");
+  //   while (1);
+  //   }
   IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
 // Set Gyroscope ODR to 1.66 kHz
-  IMU.writeReg(LSM6::CTRL2_G, 0b10010000);  // 0b1000 for ODR 1.66 kHz, 0b0001 for 250 dps range
+  IMU.writeReg(LSM6::CTRL2_G, 0xA2);  // 0b1000 for ODR 1.66 kHz, 0b0001 for 250 dps range
   // Set Accelerometer ODR to 1.66 kHz
-  IMU.writeReg(LSM6::CTRL1_XL, 0b10011000);  // 0b1000 for ODR 1.66 kHz, 0b0001 for 4g range
+  IMU.writeReg(LSM6::CTRL1_XL, 0xA0);  // 0b1000 for ODR 1.66 kHz, 0b0001 for 4g range
 
   mag.enableDefault();
-  mag.writeReg(LIS3MDL::CTRL_REG1, 0b11100110); // 1 KHz, high performance mode
-  mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 12 gauss
-  // mag.writeReg(LIS3MDL::CTRL_REG5, 0b10000000); // High read mode.
+  mag.writeReg(LIS3MDL::CTRL_REG1, 0x70); // 1 KHz, high performance mode
+  // mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 12 gauss
+  mag.writeReg(LIS3MDL::CTRL_REG2,0x00); // +- 4 gauss
   // baro.enableDefault();
   GyroMagCalibration();
 
-  #if UDP_BRIDGE == 1 
-  rtesSocket.begin(1);
-  rtesSocket.onConnection(onConnect);
-  #endif
+  // previous_time = millis();
 
 }
 
 
 void loop(){
-    unsigned long current_time = millis();
-
+    // current_time = millis();
+    // dt = (current_time - previous_time)/1000.0;
     // Update the measurement
     Update_Measurement();
     
     // Update the quaternion
     Pololu_filter.UpdateQ(&meas, dt);
-    
-    // Get the quaternion
-    // GetQuaternion(&q_est);
-    
+        
     // // Get the Euler angles
     Pololu_filter.GetEulerRPYdeg(&euler_angles, meas.initial_heading); 
     // // //Print the Euler angles
@@ -174,41 +177,36 @@ void loop(){
     Serial.print(" Yaw: ");
     Serial.println(euler_angles.z);
 
-    // GetQuaternion(&q_est);
-    // Serial.print("Quaternion: ");
-    // Serial.print(q_est.w);
-    // Serial.print(" ");
-    // Serial.print(q_est.x);
-    // Serial.print(" ");
-    // Serial.print(q_est.y);
-    // Serial.print(" ");
-    // Serial.println(q_est.z);
-    // Serial.print(IMU.g.x); Serial.print(" "); Serial.print(IMU.g.y); Serial.print(" "); Serial.println(IMU.g.z);
-    // Serial.print(IMU.a.x); Serial.print(" "); Serial.print(IMU.a.y); Serial.print(" "); Serial.println(IMU.a.z);
-    // Serial.print(mag.m.x); Serial.print(" "); Serial.print(mag.m.y); Serial.print(" "); Serial.println(mag.m.z);
+    Pololu_filter.GetQuaternion(&q_est);
+    Serial.print("Quaternion: ");
+    Serial.print(q_est.w);
+    Serial.print(" ");
+    Serial.print(q_est.x);
+    Serial.print(" ");
+    Serial.print(q_est.y);
+    Serial.print(" ");
+    Serial.println(q_est.z);
 
-    // Send2Py();
-
-    dt = millis() - current_time;
+    UDPSend2Py();
+    // previous_time = current_time;
 
 
 }
 
 
 void Update_Measurement(){
-      // Read IMU data
+    // Read IMU data
     IMU.read();
     mag.read();    
-
     meas.acc.x = IMU.a.x * POL_ACC_SENS;
     meas.acc.y = IMU.a.y * POL_ACC_SENS;
     meas.acc.z = IMU.a.z * POL_ACC_SENS;
     meas.gyro.x = IMU.g.x * POL_GYRO_SENS * deg2rad-meas.gyro_bias.x;
     meas.gyro.y = IMU.g.y * POL_GYRO_SENS * deg2rad-meas.gyro_bias.y;
     meas.gyro.z = IMU.g.z * POL_GYRO_SENS * deg2rad-meas.gyro_bias.z;
-    meas.mag.x = mag.m.x * POL_MAG_SENS_4 - meas.mag_bias.x;
-    meas.mag.y = mag.m.y * POL_MAG_SENS_4 - meas.mag_bias.y;
-    meas.mag.z = mag.m.z * POL_MAG_SENS_4 - meas.mag_bias.z;
+    meas.mag.x = mag.m.x * POL_MAG_SENS;
+    meas.mag.y = mag.m.y * POL_MAG_SENS;
+    meas.mag.z = mag.m.z * POL_MAG_SENS;
     // meas.baro_data.pressure = baro.readPressureMillibars();
     // meas.baro_data.temperature = baro.readTemperatureC();
     // meas.baro_data.asl = baro.pressureToAltitudeMeters(meas.baro_data.pressure);
@@ -230,9 +228,9 @@ void GyroMagCalibration(){
       meas.gyro_bias.y += (y- meas.gyro_bias.y)/num_samples;
       meas.gyro_bias.z += (z- meas.gyro_bias.z)/num_samples;
 
-      meas.mag_bias.x += (mag.m.x * POL_MAG_SENS_4 - meas.mag_bias.x)/num_samples;
-      meas.mag_bias.y += (mag.m.y * POL_MAG_SENS_4 - meas.mag_bias.y)/num_samples;
-      meas.mag_bias.z += (mag.m.z * POL_MAG_SENS_4 - meas.mag_bias.z)/num_samples;
+      meas.mag_bias.x += (mag.m.x * POL_MAG_SENS - meas.mag_bias.x)/num_samples;
+      meas.mag_bias.y += (mag.m.y * POL_MAG_SENS - meas.mag_bias.y)/num_samples;
+      meas.mag_bias.z += (mag.m.z * POL_MAG_SENS - meas.mag_bias.z)/num_samples;
 
       meas.acc_bias.x += (IMU.a.x * POL_ACC_SENS - meas.acc_bias.x)/num_samples;
       meas.acc_bias.y += (IMU.a.y * POL_ACC_SENS - meas.acc_bias.y)/num_samples;
@@ -268,7 +266,7 @@ void GyroMagCalibration(){
 ------------------------------------------ UDP Functions ------------------------------------------
 */
 
-void Send2Py(){
+void UDPSend2Py(){
   convert_Measurment_to_byte();
 
     #if UDP_BRIDGE ==1 
@@ -276,37 +274,34 @@ void Send2Py(){
     #endif
 
     #if SEND_DATA == 1 && UDP_BRIDGE ==1
-        if (currentSession != nullptr) {
-            std::vector<uint8_t> bytes;
+      if (currentSession != nullptr) {
+        std::vector<uint8_t> bytes;
 
-            // Send Pololu IMU data
-            bytes = floatsToBytes(imu_data, 6);
-            imu_bytes.assign(bytes.begin(), bytes.end());
+        // Send Pololu IMU data
+        bytes = floatsToBytes(imu_data, 6);
+        imu_bytes.assign(bytes.begin(), bytes.end());
 
-            bytes = floatsToBytes(mag_data, 3);
-            mag_bytes.assign(bytes.begin(), bytes.end());
-            // // Send RC data
-            // bytes = intToBytes(rc_ch_data,16);
-            // rc_bytes.assign(bytes.begin(), bytes.end());
+        bytes = floatsToBytes(mag_data, 3);
+        mag_bytes.assign(bytes.begin(), bytes.end());
+        // // Send RC data
+        // bytes = intToBytes(rc_ch_data,16);
+        // rc_bytes.assign(bytes.begin(), bytes.end());
 
-            // Send Euler angles data (roll, pitch, yaw)
-            bytes = floatsToBytes(euler_data, 3);
-            euler_bytes.assign(bytes.begin(), bytes.end());
+        // Send Euler angles data (roll, pitch, yaw)
+        bytes = floatsToBytes(euler_data, 3);
+        euler_bytes.assign(bytes.begin(), bytes.end());
 
-            bytes = floatsToBytes(quaternion_data, 4);
-            quaternion_bytes.assign(bytes.begin(), bytes.end());
+        bytes = floatsToBytes(quaternion_data, 4);
+        quaternion_bytes.assign(bytes.begin(), bytes.end());
 
+        if (imu_bytes.size() != 0) currentSession->emitRaw(POLOLU, imu_bytes);
+        if (mag_bytes.size() != 0) currentSession->emitRaw(MAG, mag_bytes);
 
+        // if (rc_bytes.size() != 0) currentSession->emitRaw(RC, rc_bytes);
+        if (euler_bytes.size() != 0) currentSession->emitRaw(EULER, euler_bytes);
+        if (quaternion_bytes.size() != 0) currentSession->emitRaw(Quaternion, quaternion_bytes);
 
-            if (imu_bytes.size() != 0) currentSession->emitRaw(POLOLU, imu_bytes);
-            if (mag_bytes.size() != 0) currentSession->emitRaw(MAG, mag_bytes);
-
-            // if (rc_bytes.size() != 0) currentSession->emitRaw(RC, rc_bytes);
-            if (euler_bytes.size() != 0) currentSession->emitRaw(euler, euler_bytes);
-            if (quaternion_bytes.size() != 0) currentSession->emitRaw(Quaternion, quaternion_bytes);
-
-
-        }
+      }
     #endif
 }
 

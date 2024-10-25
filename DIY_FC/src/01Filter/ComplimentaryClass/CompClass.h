@@ -6,11 +6,11 @@
 
 #define PI 3.14159265358979323846f
 #define rad2deg 180.0f/PI
-#define LOW_MOTION 0.001*245.0f
-#define HIGH_MOTION 0.008*245.0f
-#define HIGH_BETA 1.2f
-#define LOW_BETA 0.01f
-#define DEFAULT_BETA 0.1f
+#define LOW_MOTION 0.001*125.0f
+#define HIGH_MOTION 0.008*125.0f
+#define HIGH_BETA 0.4f
+#define LOW_BETA 0.03f
+#define DEFAULT_BETA 0.05f
 #define ALPHA_LPF 0.25f
 #define ALPHA_HPF 0.75f
 
@@ -36,7 +36,7 @@ class CompFilter {
         float calculateDynamicBeta(Measurement_t );
         float invSqrt(float x);
         void GetQuaternion(quat_t* q_);
-        void GetEulerRPYrad(vec3_t* rpy);
+        void GetEulerRPYrad(vec3_t* rpy , float initial_heading);
         void GetEulerRPYdeg(vec3_t* rpy, float initial_heading);
         void estimatedGravityDir(float* gx, float* gy, float*gz);
         float GetAccZ(float ax, float ay, float az);

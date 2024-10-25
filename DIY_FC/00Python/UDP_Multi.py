@@ -9,7 +9,7 @@ import math
 
 # Function to convert quaternion to a rotation matrix
 def quaternion_to_rotation_matrix(q):
-    q_w, q_x, q_y, q_z = q[3], q[0], q[1], q[2]
+    q_w, q_x, q_y, q_z = q[0], q[1], q[2], q[3]
     R = np.array([[1 - 2*q_y**2 - 2*q_z**2, 2*q_x*q_y - 2*q_z*q_w, 2*q_x*q_z + 2*q_y*q_w],
                   [2*q_x*q_y + 2*q_z*q_w, 1 - 2*q_x**2 - 2*q_z**2, 2*q_y*q_z - 2*q_x*q_w],
                   [2*q_x*q_z - 2*q_y*q_w, 2*q_y*q_z + 2*q_x*q_w, 1 - 2*q_x**2 - 2*q_y**2]])
@@ -18,6 +18,10 @@ def quaternion_to_rotation_matrix(q):
 # Function to convert Euler angles to a rotation matrix
 def euler_to_rotation_matrix(e):
     roll, pitch, yaw = e[0], e[1], e[2]
+    # roll = math.radians(roll)
+    # pitch = math.radians(pitch)
+    # yaw = math.radians(yaw)
+
     R_x = np.array([[1, 0, 0],
                     [0, math.cos(roll), -math.sin(roll)],
                     [0, math.sin(roll), math.cos(roll)]])

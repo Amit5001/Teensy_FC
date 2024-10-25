@@ -158,7 +158,7 @@ void CompFilter::GetQuaternion(quat_t* q_){
 
 }
 
-void CompFilter::GetEulerRPYrad(vec3_t* rpy){
+void CompFilter::GetEulerRPYrad(vec3_t* rpy, float initial_heading){
     float gx = gravX;
     float gy = gravY;
     float gz = gravZ;
@@ -169,6 +169,7 @@ void CompFilter::GetEulerRPYrad(vec3_t* rpy){
     // Currently returend in radians, can be converted to degrees by multiplying by rad2deg
     rpy->z = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z);
     rpy->y = asinf(gx);
+    // rpy->y = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z))
     rpy->x = atan2f(gy, gz);
 }
 
@@ -176,15 +177,15 @@ void CompFilter::GetEulerRPYdeg(vec3_t* rpy, float initial_heading){
     float gx = gravX;
     float gy = gravY;
     float gz = gravZ;
-    // if (gx > 1) gx = 1;
-    // if (gx < -1) gx = -1;
+    if (gx > 1) gx = 1;
+    if (gx < -1) gx = -1;
 
     rpy->z = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z) * rad2deg;
     //     if (rpy->z < 0) {
     //     rpy->z += 360.0f;
     // }
-    //rpy->y = asinf(gx) * rad2deg;
-    rpy->y = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z)) * rad2deg;
+    rpy->y = asinf(gx) * rad2deg;
+    // rpy->y = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z)) * rad2deg;
     rpy->x = atan2f(gy, gz) * rad2deg;
 }
 
@@ -216,15 +217,15 @@ float CompFilter::calculateDynamicBeta(Measurement_t meas) {
     // Adapt Beta based on gyroscope norm
     if (gyroNorm < LOW_MOTION) {
         // System is likely stable or slow-moving, increase Beta for more correction
-        // Serial.println("Low Motion");
+        Serial.println("Low Motion");
         return HIGH_BETA;
     } else if (gyroNorm > HIGH_MOTION) {
         // System is moving fast, reduce Beta to rely more on gyroscope
-        // Serial.println("High Motion");
+        Serial.println("High Motion");
         return LOW_BETA;
     } else {
         // Default case, normal correction
-        // Serial.println("Default Motion");
+        Serial.println("Default Motion");
         return DEFAULT_BETA;
     }
 }
