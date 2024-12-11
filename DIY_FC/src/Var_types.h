@@ -110,6 +110,40 @@ typedef struct attitude_s{
     float yaw;
 }attitude_t;
 
+// Specify addition operator for attitude_t
+attitude_t operator+(const attitude_t& a, const attitude_t& b) {
+    attitude_t result;
+    result.roll = a.roll + b.roll;
+    result.pitch = a.pitch + b.pitch;
+    result.yaw = a.yaw + b.yaw;
+    return result;
+}
+
+// Specify addition operator for attitude_t
+attitude_t operator-(const attitude_t& a, const attitude_t& b) {
+    attitude_t result;
+    result.roll = a.roll - b.roll;
+    result.pitch = a.pitch - b.pitch;
+    result.yaw = a.yaw - b.yaw;
+    return result;
+}
+
+// Specify the `+=` operator for attitude_t
+attitude_t& operator+=(attitude_t& a, const attitude_t& b) {
+    a.roll += b.roll;
+    a.pitch += b.pitch;
+    a.yaw += b.yaw;
+    return a;
+}
+
+// Specify the `-=` operator for attitude_t
+attitude_t& operator-=(attitude_t& a, const attitude_t& b) {
+    a.roll -= b.roll;
+    a.pitch -= b.pitch;
+    a.yaw -= b.yaw;
+    return a;
+}
+
 typedef struct state_s{
     attitude_t attitude_angles;
     quat_t attitudeQuaternion;
@@ -119,7 +153,54 @@ typedef struct state_s{
     vec3_t acceleration;
 }state_t;
 
-typedef uint32_t StabStep_t;
+typedef struct PID_Params_s{
+    float RollP;
+    float RollI;
+    float RollD;
+    float PitchP;
+    float PitchI;
+    float PitchD;
+    float YawP;
+    float YawI;
+    float YawD;
+
+    float Imax_roll;
+    float Imax_pitch;
+    float Imax_yaw;
+
+}PID_Params_t;
+
+typedef struct PID_out_s{
+    attitude_t P_term;
+    attitude_t I_term;
+    attitude_t D_term;
+    attitude_t PID_ret = {0.0, 0.0, 0.0};
+    attitude_t prev_err = {0.0, 0.0, 0.0};
+    attitude_t prev_Iterm = {0.0, 0.0, 0.0};
+
+}PID_out_t;
+
+typedef struct motor_s{
+    int M1_pin;
+    int M2_pin;
+    int M3_pin;
+    int M4_pin;
+    float PWM1;
+    float PWM2;
+    float PWM3;
+    float PWM4;
+}motor_t;
+
+typedef struct Controller_s{
+    long throttle;
+    long roll;
+    long pitch;
+    long yaw;
+    long aux1;
+    long aux2;
+    long aux3;
+    long aux4;
+}Controller_t; 
 
 
 #endif

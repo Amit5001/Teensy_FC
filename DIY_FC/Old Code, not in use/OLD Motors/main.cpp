@@ -47,3 +47,50 @@ void calibrateESC(){
   delay(10000);
   Serial.println("ESC Calibration Complete");
 }
+
+
+
+#include <Arduino.h>
+
+const int motorPin = 12;  // GPIO12 (D12) for the motor signal
+
+int motor1_value = 1100;
+
+void setup() {
+  pinMode(motorPin, OUTPUT);
+  Serial.begin(115200);
+  calibrate_motor(1000);  // Adjust pulse width for speed (500-2500 microseconds)
+  Serial.println("1000");
+
+
+
+}
+
+void loop() {
+
+  writeMotorSpeed(motor1_value,motorPin);
+
+}
+
+
+
+
+// Function to start the motor 
+void calibrate_motor(int pulseWidth) {
+  // Send PWM pulse for continuous operation with a 20ms period
+  for (int i = 0; i < 50; i++) {  // Repeat to maintain signal
+    digitalWrite(motorPin, HIGH);
+    delayMicroseconds(pulseWidth);
+    digitalWrite(motorPin, LOW);
+    delayMicroseconds(20000 - pulseWidth);
+  }
+}
+
+// Function that run on the main loop 
+void writeMotorSpeed(int pulseWidth,int motorPin) {
+    digitalWrite(motorPin, HIGH);
+    delayMicroseconds(pulseWidth);
+    digitalWrite(motorPin, LOW);
+    delayMicroseconds(20000 - pulseWidth);
+  
+  }
