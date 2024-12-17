@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Var_types.h>
-#include <MotorsControl.h>
+#include <02Motor/MotorsControl.h>
+
 
 // Initialization of the motors
 void Motors::Motors_init(){

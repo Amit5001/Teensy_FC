@@ -36,10 +36,10 @@ class CompFilter {
         float calculateDynamicBeta(Measurement_t );
         float invSqrt(float x);
         void GetQuaternion(quat_t* q_);
-        void GetEulerRPYrad(vec3_t* rpy , float initial_heading);
-        void GetEulerRPYdeg(vec3_t* rpy, float initial_heading);
-        void estimatedGravityDir(float* gx, float* gy, float*gz);
-        float GetAccZ(float ax, float ay, float az);
+        void GetEulerRPYrad(attitude_s* , float);
+        void GetEulerRPYdeg(attitude_s* , float);
+        void estimatedGravityDir(float* , float* , float*);
+        float GetAccZ(float , float , float );
 };
 
 

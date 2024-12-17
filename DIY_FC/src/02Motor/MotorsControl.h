@@ -11,8 +11,6 @@ class Motors {
         int MOTOR_OFF = 0;
         int MOTOR_ARM = 1100;
         int ESC_FREQUENCY;
-        //int PWM_MAX = 4095;
-        // int PWM_MAX = 65535;
 
         motor_t Motor_struct;
 
@@ -35,7 +33,7 @@ class Motors {
         void Arm();
         void Disarm();
         void set_motorPWM();
-        void Motor_Mix(attitude_t motor_input, int throttle);
+        void Motor_Mix(attitude_t , int );
         motor_t Get_motor();
 
 };

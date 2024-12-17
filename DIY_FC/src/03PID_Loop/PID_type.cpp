@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <PID_type.h>
+#include <03PID_Loop/PID_type.h>
 #include <Var_types.h>
 
 // attitude_t angle; // Attitude
@@ -19,8 +19,27 @@ PID_Params_t stab_params; // PID parameters for stabilization controller
 
 
 // Initialization of PID parameters. Need to run at setup in the main code.
-void initializePIDParams(float RrollPID[3]={0.1,0.01,0.01}, float RyawPID[3]={0.1,0.01,0.01}, float Imax_rate[2]={100.0f,100.0f}, float SrollPID[3]={0.1,0.01,0.01}, float SyawPID[3]={0.1,0.01,0.01}, float Imax_stab[2]={100.0f,100.0f}) {
-    // Rate mode parameters
+void initializePIDParams(float RrollPID[3] = nullptr, float RyawPID[3] = nullptr,
+                         float Imax_rate[2] = nullptr, float SrollPID[3] = nullptr,
+                         float SyawPID[3] = nullptr, float Imax_stab[2] = nullptr){    // Rate mode parameters
+    
+    // Default parameter values
+    const float defaultRrollPID[3] = {0.1f, 0.01f, 0.01f};
+    const float defaultRyawPID[3] = {0.1f, 0.01f, 0.01f};
+    const float defaultImax_rate[2] = {100.0f, 100.0f};
+    const float defaultSrollPID[3] = {0.1f, 0.01f, 0.01f};
+    const float defaultSyawPID[3] = {0.1f, 0.01f, 0.01f};
+    const float defaultImax_stab[2] = {100.0f, 100.0f};
+
+    // Assign default values if nullptr is passed
+    if (RrollPID == nullptr) RrollPID = const_cast<float*>(defaultRrollPID);
+    if (RyawPID == nullptr) RyawPID = const_cast<float*>(defaultRyawPID);
+    if (Imax_rate == nullptr) Imax_rate = const_cast<float*>(defaultImax_rate);
+    if (SrollPID == nullptr) SrollPID = const_cast<float*>(defaultSrollPID);
+    if (SyawPID == nullptr) SyawPID = const_cast<float*>(defaultSyawPID);
+    if (Imax_stab == nullptr) Imax_stab = const_cast<float*>(defaultImax_stab);
+
+    
     rate_params.RollP = RrollPID[0];
     rate_params.RollI = RrollPID[1];
     rate_params.RollD = RrollPID[2];

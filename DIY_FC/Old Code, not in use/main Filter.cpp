@@ -142,10 +142,7 @@ void setup() {
     Serial.println("Failed to detect and initialize Magnetometer!");
     while (1);
     }
-  // if (!baro.init()){
-  //   Serial.println("Failed to detect and initialize Barometer!");
-  //   while (1);
-  //   }
+
   IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
   IMU.writeReg(LSM6::CTRL2_G, 0b10100000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 125 dps range
   IMU.writeReg(LSM6::CTRL1_XL, 0b10100000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 2g range
@@ -155,7 +152,7 @@ void setup() {
   mag.enableDefault();
   mag.writeReg(LIS3MDL::CTRL_REG1, 0b11100110); // 1 KHz, high performance mode
   mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 4 gauss
-  // baro.enableDefault();
+
   GyroMagCalibration();
 
 }

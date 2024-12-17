@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <01Filter/ComplimentaryClass/CompClass.h>
+#include <01Filter/CompClass.h>
 #include <Var_types.h>
 
 
@@ -158,7 +158,7 @@ void CompFilter::GetQuaternion(quat_t* q_){
 
 }
 
-void CompFilter::GetEulerRPYrad(vec3_t* rpy, float initial_heading){
+void CompFilter::GetEulerRPYrad(attitude_s* rpy, float initial_heading){
     float gx = gravX;
     float gy = gravY;
     float gz = gravZ;
@@ -167,26 +167,26 @@ void CompFilter::GetEulerRPYrad(vec3_t* rpy, float initial_heading){
     if (gx < -1) gx = -1;
 
     // Currently returend in radians, can be converted to degrees by multiplying by rad2deg
-    rpy->z = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z);
-    rpy->y = asinf(gx);
+    rpy->yaw = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z);
+    rpy->pitch = asinf(gx);
     // rpy->y = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z))
-    rpy->x = atan2f(gy, gz);
+    rpy->roll = atan2f(gy, gz);
 }
 
-void CompFilter::GetEulerRPYdeg(vec3_t* rpy, float initial_heading){
+void CompFilter::GetEulerRPYdeg(attitude_s* rpy, float initial_heading){
     float gx = gravX;
     float gy = gravY;
     float gz = gravZ;
     if (gx > 1) gx = 1;
     if (gx < -1) gx = -1;
 
-    rpy->z = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z) * rad2deg;
+    rpy->yaw = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z) * rad2deg;
     //     if (rpy->z < 0) {
     //     rpy->z += 360.0f;
     // }
-    rpy->y = asinf(gx) * rad2deg;
+    rpy->pitch = asinf(gx) * rad2deg;
     // rpy->y = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z)) * rad2deg;
-    rpy->x = atan2f(gy, gz) * rad2deg;
+    rpy->roll = atan2f(gy, gz) * rad2deg;
 }
 
 //---------------------------------------------------------------------------------------------------
@@ -210,6 +210,7 @@ void CompFilter::estimatedGravityDir(float* gx, float* gy, float*gz){
     *gy = 2*(q.y*q.z + q.x*q.w);
     *gz = q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z;
 }
+
 float CompFilter::calculateDynamicBeta(Measurement_t meas) {
     // Compute the norm (magnitude) of the gyroscope vector
     gyroNorm = sqrtf(meas.gyro.x * meas.gyro.x + meas.gyro.y * meas.gyro.y + meas.gyro.z * meas.gyro.z);

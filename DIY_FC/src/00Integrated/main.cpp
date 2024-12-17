@@ -1,17 +1,17 @@
 #include <Arduino.h>
 
 // Filter Library:
-#include <CompClass.h>
+#include <01Filter/CompClass.h>
 
 // PID Controller library:
-#include <PID_type.h>
+#include <03PID_Loop/PID_type.h>
 
 // Remote Control Library - ELRS:
 #include <AlfredoCRSF.h>
 #include <HardwareSerial.h>
 
 // Motors Library:
-#include <MotorsControl.h>
+#include <02Motor/MotorsControl.h>
 
 // Exotic Variables defined here:
 #include <Var_types.h>
@@ -81,7 +81,6 @@ AlfredoCRSF elrs;
 Controller_s controller_data;
 
 
-
 // Motors Variables:
 Motors motors(ESC_FREQUENCY, MOTOR1_PIN, MOTOR2_PIN, MOTOR3_PIN, MOTOR4_PIN);
 
@@ -108,10 +107,12 @@ attitude_t desired_rate;
 attitude_t estimated_attitude;
 attitude_t estimated_rate;
 
+
 /********************************************** Function Prototypes **********************************************/
 void Update_Measurement();
 void GyroMagCalibration();
 void update_controller();
+void IMU_init();
 
 /********************************************** Main Code **********************************************/
 
@@ -122,20 +123,19 @@ void setup() {
     Serial.println("USB Serial initialized");
 
     // Initialize ELRS Serial:
-    elrsSerial.begin(420000);
+    elrsSerial.begin(CRSF_BAUDRATE, SERIAL_8N1);
     if (!elrsSerial) {
         Serial.println("Failed to initialize Serial1");
         while (1);
     }
-
-    // Initialize ELRS:
     elrs.begin(elrsSerial);
     Serial.println("ELRS initialized");
 
+    // Initialize IMU:
+    IMU_init();
+
     // Initializing motors and PID:
-    initializePIDParams(float RrollPID[3]={0.1,0.01,0.01}, float RyawPID[3]={0.1,0.01,0.01},
-                        float Imax_rate[2]={100.0f,100.0f}, float SrollPID[3]={0.1,0.01,0.01}, 
-                        float SyawPID[3]={0.1,0.01,0.01}, float Imax_stab[2]={100.0f,100.0f});
+    initializePIDParams();
     motors.Motors_init();
     GyroMagCalibration();
 }
@@ -151,15 +151,12 @@ void loop() {
     Pololu_filter.UpdateQ(&meas, dt);
 
     // Get the Euler angles:
-    Pololu_filter.GetEulerRPYrad(&euler_angles, meas.initial_heading);
+    Pololu_filter.GetEulerRPYrad(&estimated_attitude, meas.initial_heading);
 
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
 
     // PID Controller:  Might want to add a if statement to change between rate and stabilize mode.
-    estimated_attitude.roll = euler_angles.x;
-    estimated_attitude.pitch = euler_angles.y;
-    estimated_attitude.yaw = euler_angles.z;
     desired_rate = PID_stab(desired_attitude, estimated_attitude, dt);
 
     // PID Controller for Rate:
@@ -177,7 +174,7 @@ void loop() {
 
 
     // Send the data to the Python GUI:
-    UDPSend2Py();
+    // UDPSend2Py();
 }
 
 
@@ -214,9 +211,9 @@ void GyroMagCalibration(){
       float y = IMU.g.y * POL_GYRO_SENS * deg2rad;
       float z = IMU.g.z * POL_GYRO_SENS * deg2rad;
       num_samples++;
-      meas.gyro_bias.x += (x- meas.gyro_bias.x)/num_samples;
-      meas.gyro_bias.y += (y- meas.gyro_bias.y)/num_samples;
-      meas.gyro_bias.z += (z- meas.gyro_bias.z)/num_samples;
+      meas.gyro_bias.x += (x - meas.gyro_bias.x)/num_samples;
+      meas.gyro_bias.y += (y - meas.gyro_bias.y)/num_samples;
+      meas.gyro_bias.z += (z - meas.gyro_bias.z)/num_samples;
 
       meas.mag_bias.x += (mag.m.x * POL_MAG_SENS - meas.mag_bias.x)/num_samples;
       meas.mag_bias.y += (mag.m.y * POL_MAG_SENS - meas.mag_bias.y)/num_samples;
@@ -264,4 +261,30 @@ void update_controller(){
     controller_data.aux1 = elrs.getChannel(7);
     controller_data.aux1 = elrs.getChannel(8);
 
+}
+
+void IMU_init(){
+        // Seting pins 24 and 25 to be used as I2C
+    Wire.begin();
+    Wire.setClock(420000);
+
+    // Initialize IMU
+    if (!IMU.init()){
+        Serial.println("Failed to detect and initialize IMU!");
+        while (1);
+        }
+    if (!mag.init()){
+        Serial.println("Failed to detect and initialize Magnetometer!");
+        while (1);
+        }
+
+    IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
+    IMU.writeReg(LSM6::CTRL2_G, 0b10100000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 125 dps range
+    IMU.writeReg(LSM6::CTRL1_XL, 0b10100000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 2g range
+    // IMU.writeReg(LSM6::CTRL1_XL, 0b10110000); // Set ODR to 3.33 kHz, FS = ±2 g (if unchanged)
+    // IMU.writeReg(LSM6::CTRL2_G, 0b10110000);  // Set ODR to 3.33 kHz, FS = 125 dps (if unchanged)
+
+    mag.enableDefault();
+    mag.writeReg(LIS3MDL::CTRL_REG1, 0b11100110); // 1 KHz, high performance mode
+    mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 4 gauss
 }
