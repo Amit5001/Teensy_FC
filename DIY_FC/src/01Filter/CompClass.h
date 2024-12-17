@@ -4,11 +4,11 @@
 #include <Arduino.h>
 #include <Var_types.h>
 
-#define PI 3.14159265358979323846f
+// #define PI 3.14159265358979323846f
 #define rad2deg 180.0f/PI
 #define LOW_MOTION 0.001*125.0f
 #define HIGH_MOTION 0.008*125.0f
-#define HIGH_BETA 0.4f
+#define HIGH_BETA 0.2f
 #define LOW_BETA 0.03f
 #define DEFAULT_BETA 0.05f
 #define ALPHA_LPF 0.25f

@@ -32,6 +32,10 @@
 #include <cmath>
 
 /********************************************** Definitions **********************************************/
+// Motor 3 FL gpio 4
+// Motor 1 FR gpio 2
+// Motor 4 BL gpio 5 
+// Motor 2 BR gpio 3
 #define ELRS_SERIAL 1
 #define MOTOR1_PIN 2
 #define MOTOR2_PIN 3
@@ -75,7 +79,6 @@
 // ELRS Controller:
 AlfredoCRSF elrs;
 Controller_s controller_data;
-uint16_t controller[16];  // RC channel values
 
 
 
@@ -130,8 +133,11 @@ void setup() {
     Serial.println("ELRS initialized");
 
     // Initializing motors and PID:
-    initializePIDParams();
+    initializePIDParams(float RrollPID[3]={0.1,0.01,0.01}, float RyawPID[3]={0.1,0.01,0.01},
+                        float Imax_rate[2]={100.0f,100.0f}, float SrollPID[3]={0.1,0.01,0.01}, 
+                        float SyawPID[3]={0.1,0.01,0.01}, float Imax_stab[2]={100.0f,100.0f});
     motors.Motors_init();
+    GyroMagCalibration();
 }
 
 void loop() {
@@ -154,7 +160,7 @@ void loop() {
     estimated_attitude.roll = euler_angles.x;
     estimated_attitude.pitch = euler_angles.y;
     estimated_attitude.yaw = euler_angles.z;
-    desired_rate = PID_stab(desired_attitude, estimated_attitude, meas.gyro, dt);
+    desired_rate = PID_stab(desired_attitude, estimated_attitude, dt);
 
     // PID Controller for Rate:
     estimated_rate.roll = meas.gyro.x;
@@ -249,13 +255,13 @@ void update_controller(){
     // Update the controller data:
     elrs.update();
     // Get the controller data:
-    controller_data.throttle = elrs.getchannel(1);
-    controller_data.roll = elrs.getchannel(2);
-    controller_data.pitch = elrs.getchannel(3);
-    controller_data.yaw = elrs.getchannel(4);
-    controller_data.aux1 = elrs.getchannel(5);
-    controller_data.aux1 = elrs.getchannel(6);
-    controller_data.aux1 = elrs.getchannel(7);
-    controller_data.aux1 = elrs.getchannel(8);
+    controller_data.throttle = elrs.getChannel(1);
+    controller_data.roll = elrs.getChannel(2);
+    controller_data.pitch = elrs.getChannel(3);
+    controller_data.yaw = elrs.getChannel(4);
+    controller_data.aux1 = elrs.getChannel(5);
+    controller_data.aux1 = elrs.getChannel(6);
+    controller_data.aux1 = elrs.getChannel(7);
+    controller_data.aux1 = elrs.getChannel(8);
 
 }

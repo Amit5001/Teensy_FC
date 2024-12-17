@@ -24,10 +24,10 @@ class Motors {
             Motor_struct.M2_pin = motor2_pin;
             Motor_struct.M3_pin = motor3_pin;
             Motor_struct.M4_pin = motor4_pin;
-            Motor_struct.M1_PWM = MOTOR_OFF;
-            Motor_struct.M2_PWM = MOTOR_OFF;
-            Motor_struct.M3_PWM = MOTOR_OFF;
-            Motor_struct.M4_PWM = MOTOR_OFF;
+            Motor_struct.PWM1 = MOTOR_OFF;
+            Motor_struct.PWM2 = MOTOR_OFF;
+            Motor_struct.PWM3 = MOTOR_OFF;
+            Motor_struct.PWM4 = MOTOR_OFF;
 
 
         };

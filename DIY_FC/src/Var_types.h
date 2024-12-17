@@ -111,7 +111,7 @@ typedef struct attitude_s{
 }attitude_t;
 
 // Specify addition operator for attitude_t
-attitude_t operator+(const attitude_t& a, const attitude_t& b) {
+inline attitude_t operator+(const attitude_t& a,const attitude_t& b) {
     attitude_t result;
     result.roll = a.roll + b.roll;
     result.pitch = a.pitch + b.pitch;
@@ -120,7 +120,7 @@ attitude_t operator+(const attitude_t& a, const attitude_t& b) {
 }
 
 // Specify addition operator for attitude_t
-attitude_t operator-(const attitude_t& a, const attitude_t& b) {
+inline attitude_t operator-(const attitude_t& a,const attitude_t& b) {
     attitude_t result;
     result.roll = a.roll - b.roll;
     result.pitch = a.pitch - b.pitch;
@@ -129,7 +129,7 @@ attitude_t operator-(const attitude_t& a, const attitude_t& b) {
 }
 
 // Specify the `+=` operator for attitude_t
-attitude_t& operator+=(attitude_t& a, const attitude_t& b) {
+inline attitude_t& operator+=(attitude_t& a, attitude_t& b) {
     a.roll += b.roll;
     a.pitch += b.pitch;
     a.yaw += b.yaw;
@@ -137,7 +137,7 @@ attitude_t& operator+=(attitude_t& a, const attitude_t& b) {
 }
 
 // Specify the `-=` operator for attitude_t
-attitude_t& operator-=(attitude_t& a, const attitude_t& b) {
+inline attitude_t& operator-=(attitude_t& a, attitude_t& b) {
     a.roll -= b.roll;
     a.pitch -= b.pitch;
     a.yaw -= b.yaw;
@@ -192,14 +192,14 @@ typedef struct motor_s{
 }motor_t;
 
 typedef struct Controller_s{
-    long throttle;
-    long roll;
-    long pitch;
-    long yaw;
-    long aux1;
-    long aux2;
-    long aux3;
-    long aux4;
+    int throttle;
+    int roll;
+    int pitch;
+    int yaw;
+    int aux1;
+    int aux2;
+    int aux3;
+    int aux4;
 }Controller_t; 
 
 

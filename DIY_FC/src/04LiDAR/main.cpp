@@ -46,26 +46,26 @@ void setup() {
   // Initialize I2C communication
   Wire.begin();
   Wire.setClock(400000); // Set I2C clock to 400 kHz
-
+  
   tof_init();
+  Serial.println("Setup done!");
 }
 
 void loop() {
   // Printing I2C addresses
   Serial.println("I2C addresses:");
   for (uint8_t i = 0; i < 128; i++) {
-    Wire2.beginTransmission(i);
-    if (Wire2.endTransmission() == 0) {
+    Wire.beginTransmission(i);
+    if (Wire.endTransmission() == 0) {
       Serial.print("0x");
       Serial.println(i, HEX);
-      sprintf("Checked address: 0x%02X", i);
     }
   }
   delay(1000);
   Serial.println("Finished scanning I2C addresses");
 
-  VL53L8CX_ResultsData results;
-  uint8_t data_ready = 0;
-  uint8_t status;
+  // VL53L8CX_ResultsData results;
+  // uint8_t data_ready = 0;
+  // uint8_t status;
 
 }

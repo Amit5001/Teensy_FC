@@ -19,7 +19,7 @@ PID_Params_t stab_params; // PID parameters for stabilization controller
 
 
 // Initialization of PID parameters. Need to run at setup in the main code.
-void initializePIDParams(float RrollPID[3]={0.1,0.01,0.01}, float RyawPID[3]={0.1,0.01,0.01}, float Imax_rate[2]={100,100}, float SrollPID[3]={0.1,0.01,0.01}, float SyawPID[3]={0.1,0.01,0.01}, float Imax_stab[2]={100,100}) {
+void initializePIDParams(float RrollPID[3]={0.1,0.01,0.01}, float RyawPID[3]={0.1,0.01,0.01}, float Imax_rate[2]={100.0f,100.0f}, float SrollPID[3]={0.1,0.01,0.01}, float SyawPID[3]={0.1,0.01,0.01}, float Imax_stab[2]={100.0f,100.0f}) {
     // Rate mode parameters
     rate_params.RollP = RrollPID[0];
     rate_params.RollI = RrollPID[1];
@@ -50,11 +50,9 @@ void initializePIDParams(float RrollPID[3]={0.1,0.01,0.01}, float RyawPID[3]={0.
 }
 
 // PID controller for rate
-attitude_t PID_rate(attitude_t des_rate, attitude_t rate, int DT) {
+attitude_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
     // Calculate error
-    rate_err.roll = des_rate.roll - rate.roll;
-    rate_err.pitch = des_rate.pitch - rate.pitch;
-    rate_err.yaw = des_rate.yaw - rate.yaw;
+    rate_err = des_rate - rate;
 
     // Calculate P term:
     rate_out.P_term.roll = rate_params.RollP * rate_err.roll;
@@ -86,7 +84,7 @@ attitude_t PID_rate(attitude_t des_rate, attitude_t rate, int DT) {
 }
 
 // PID controller for stabilization
-attitude_t PID_stab(attitude_t des_angle, attitude_t angle, attitude_t rate, int DT) {
+attitude_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     // Calculate error
     angle_err = des_angle - angle;
 
