@@ -43,6 +43,13 @@
 #define MOTOR4_PIN 5
 #define ESC_FREQUENCY 250
 
+/**** Max Angle and max rate ****/
+#define MAX_ANGLE 30.0f
+#define MAX_RATE 200.0f
+#define CONTROLLER_MIN 988
+#define CONTROLLER_MAX 2012
+
+
 /**** IMU Data parameters:  ****/
 #define POL_GYRO_SENS 4.375/1000.0f    // FS = 125
 #define POL_ACC_SENS 0.061/1000.0f     // FS = 2g, 0.061 mg/LSB
@@ -113,6 +120,7 @@ void Update_Measurement();
 void GyroMagCalibration();
 void update_controller();
 void IMU_init();
+void mapping_controller(char);
 
 /********************************************** Main Code **********************************************/
 
@@ -156,15 +164,22 @@ void loop() {
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
 
-    // PID Controller:  Might want to add a if statement to change between rate and stabilize mode.
-    desired_rate = PID_stab(desired_attitude, estimated_attitude, dt);
+    if (controller_data.aux1 > 1500){ // Stabilize mode:
+        // This mode only need to contain another PID loop for the angle and then the rate.
+        mapping_controller('s');
+        desired_rate = PID_stab(desired_attitude, estimated_attitude, dt);
+        motor_input = PID_rate(desired_rate, estimated_rate, dt);
 
-    // PID Controller for Rate:
-    estimated_rate.roll = meas.gyro.x;
-    estimated_rate.pitch = meas.gyro.y;
-    estimated_rate.yaw = meas.gyro.z;
-    motor_input = PID_rate(desired_rate, estimated_rate, dt); // Need to change the gyro measurements to the estimated attitude rates.
+    }
+    else{ // Acro mode:
+        mapping_controller('r');
 
+        estimated_rate.roll = meas.gyro.x;
+        estimated_rate.pitch = meas.gyro.y;
+        estimated_rate.yaw = meas.gyro.z;
+
+        motor_input = PID_rate(desired_rate, estimated_rate, dt);
+    }
     // Motor Mixing:
     motors.Motor_Mix(motor_input, controller_data.throttle);
 
@@ -287,4 +302,17 @@ void IMU_init(){
     mag.enableDefault();
     mag.writeReg(LIS3MDL::CTRL_REG1, 0b11100110); // 1 KHz, high performance mode
     mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 4 gauss
+}
+
+void mapping_controller(char state){
+    if (state == 's'){ // Mapping the controller input into desired angle:
+        desired_attitude.roll = map(controller_data.roll, CONTROLLER_MIN, CONTROLLER_MAX, -MAX_ANGLE, MAX_ANGLE);
+        desired_attitude.pitch = map(controller_data.pitch, CONTROLLER_MIN, CONTROLLER_MAX, -MAX_ANGLE, MAX_ANGLE);
+        desired_attitude.yaw = map(controller_data.yaw, CONTROLLER_MIN, CONTROLLER_MAX, -MAX_ANGLE, MAX_ANGLE);
+    }
+    else if (state == 'r'){ // Mapping the controller input into desired rate:
+        desired_rate.roll = map(controller_data.roll, CONTROLLER_MIN, CONTROLLER_MAX, -MAX_RATE, MAX_RATE);
+        desired_rate.pitch = map(controller_data.pitch, CONTROLLER_MIN, CONTROLLER_MAX, -MAX_RATE, MAX_RATE);
+        desired_rate.yaw = map(controller_data.yaw, CONTROLLER_MIN, CONTROLLER_MAX, -MAX_RATE, MAX_RATE);
+    }
 }
