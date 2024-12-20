@@ -113,6 +113,8 @@ attitude_t motor_input;
 attitude_t desired_rate;
 attitude_t estimated_attitude;
 attitude_t estimated_rate;
+PID_out_t PID_stab_out;
+PID_out_t PID_rate_out;
 
 
 /********************************************** Function Prototypes **********************************************/
@@ -164,24 +166,23 @@ void loop() {
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
 
+    estimated_rate.roll = meas.gyro.x;
+    estimated_rate.pitch = meas.gyro.y;
+     estimated_rate.yaw = meas.gyro.z;
+
     if (controller_data.aux1 > 1500){ // Stabilize mode:
         // This mode only need to contain another PID loop for the angle and then the rate.
         mapping_controller('s');
-        desired_rate = PID_stab(desired_attitude, estimated_attitude, dt);
-        motor_input = PID_rate(desired_rate, estimated_rate, dt);
+        PID_stab_out = PID_stab(desired_attitude, estimated_attitude, dt);
+        PID_rate_out = PID_rate(PID_stab_out.PID_ret, estimated_rate, dt);
 
     }
     else{ // Acro mode:
         mapping_controller('r');
-
-        estimated_rate.roll = meas.gyro.x;
-        estimated_rate.pitch = meas.gyro.y;
-        estimated_rate.yaw = meas.gyro.z;
-
-        motor_input = PID_rate(desired_rate, estimated_rate, dt);
+        PID_rate_out = PID_rate(desired_rate, estimated_rate, dt);
     }
     // Motor Mixing:
-    motors.Motor_Mix(motor_input, controller_data.throttle);
+    motors.Motor_Mix(PID_rate_out.PID_ret, controller_data.throttle);
 
     // Set the motor PWM:
     motors.set_motorPWM();

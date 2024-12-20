@@ -69,7 +69,7 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RyawPID[3] = nullptr
 }
 
 // PID controller for rate
-attitude_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
+PID_out_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
     // Calculate error
     rate_err = des_rate - rate;
 
@@ -99,11 +99,11 @@ attitude_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
 
     // Return the output
     rate_out.PID_ret = rate_out.P_term + rate_out.I_term + rate_out.D_term;
-    return rate_out.PID_ret; // This is the motor input values
+    return rate_out; // This is the motor input values
 }
 
 // PID controller for stabilization
-attitude_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
+PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     // Calculate error
     angle_err = des_angle - angle;
 
@@ -135,5 +135,5 @@ attitude_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     stab_out.PID_ret = stab_out.P_term + stab_out.I_term + stab_out.D_term;
     
 
-    return stab_out.PID_ret; // This output is the desired rate. now we can use the PID_rate function to get the motor input values
+    return stab_out; // This output is the desired rate. now we can use the PID_rate function to get the motor input values
 }
