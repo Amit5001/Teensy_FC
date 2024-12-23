@@ -90,6 +90,7 @@ Controller_s controller_data;
 
 // Motors Variables:
 Motors motors(ESC_FREQUENCY, MOTOR1_PIN, MOTOR2_PIN, MOTOR3_PIN, MOTOR4_PIN);
+motor_t motor_pwm;
 
 // IMU and Filter Variables:
 LSM6 IMU;
@@ -109,7 +110,7 @@ float dt = 1/1100.0f;
 // Desired Attitude - From the controller:
 attitude_t desired_attitude;
 long mid_value = 1500;
-attitude_t motor_input;
+attitude_t motor_input; // Currently not in use. replaced by PID_rate_out.PID_ret
 attitude_t desired_rate;
 attitude_t estimated_attitude;
 attitude_t estimated_rate;
@@ -186,6 +187,9 @@ void loop() {
 
     // Set the motor PWM:
     motors.set_motorPWM();
+
+    //Getting the motors struct to send data back:
+    motor_pwm = motors.Get_motor();
 
 
 
@@ -268,9 +272,9 @@ void update_controller(){
     // Update the controller data:
     elrs.update();
     // Get the controller data:
-    controller_data.throttle = elrs.getChannel(1);
-    controller_data.roll = elrs.getChannel(2);
-    controller_data.pitch = elrs.getChannel(3);
+    controller_data.throttle = elrs.getChannel(3);
+    controller_data.roll = elrs.getChannel(1);
+    controller_data.pitch = elrs.getChannel(2);
     controller_data.yaw = elrs.getChannel(4);
     controller_data.aux1 = elrs.getChannel(5);
     controller_data.aux1 = elrs.getChannel(6);

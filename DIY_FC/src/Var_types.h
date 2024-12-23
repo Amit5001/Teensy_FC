@@ -185,10 +185,10 @@ typedef struct motor_s{
     int M2_pin;
     int M3_pin;
     int M4_pin;
-    float PWM1;
-    float PWM2;
-    float PWM3;
-    float PWM4;
+    int PWM1;
+    int PWM2;
+    int PWM3;
+    int PWM4;
 }motor_t;
 
 typedef struct Controller_s{

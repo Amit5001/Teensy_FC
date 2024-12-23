@@ -72,6 +72,9 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RyawPID[3] = nullptr
 PID_out_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
     // Calculate error
     rate_err = des_rate - rate;
+    if (rate_err.roll > 0.1 || rate_err.roll < -0.1){ rate_err.roll = 0.0; };
+    if (rate_err.pitch > 0.1 || rate_err.pitch < -0.1){ rate_err.pitch = 0.0; };
+    if (rate_err.yaw > 0.1 || rate_err.yaw < -0.1){ rate_err.yaw = 0.0; };
 
     // Calculate P term:
     rate_out.P_term.roll = rate_params.RollP * rate_err.roll;
@@ -79,9 +82,9 @@ PID_out_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
     rate_out.P_term.yaw = rate_params.YawP * rate_err.yaw;
 
     // Calculate I term:
-    rate_out.I_term.roll = rate_out.prev_Iterm.roll + rate_params.RollI * rate_err.roll*DT;
-    rate_out.I_term.pitch = rate_out.prev_Iterm.pitch + rate_params.PitchI * rate_err.pitch*DT;
-    rate_out.I_term.yaw = rate_out.prev_Iterm.yaw + rate_params.YawI * rate_err.yaw*DT;
+    rate_out.I_term.roll = rate_out.prev_Iterm.roll + (rate_params.RollI/2) * (rate_err.roll + rate_out.prev_err.roll)*DT;
+    rate_out.I_term.pitch = rate_out.prev_Iterm.pitch + (rate_params.PitchI/2) * (rate_err.pitch + rate_out.prev_err.pitch)*DT;
+    rate_out.I_term.yaw = rate_out.prev_Iterm.yaw + (rate_params.YawI/2) * (rate_err.yaw + rate_out.prev_err.yaw)*DT;
 
     // Calculate D term:
     rate_out.D_term.roll = rate_params.RollD * (rate_err.roll - rate_out.prev_err.roll)/DT;
@@ -106,6 +109,9 @@ PID_out_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
 PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     // Calculate error
     angle_err = des_angle - angle;
+    // if (angle_err.roll > 0.1 || angle_err.roll < -0.1){ angle_err.roll = 0.0; };
+    // if (angle_err.pitch > 0.1 || angle_err.pitch < -0.1){ angle_err.pitch = 0.0; };
+    // if (angle_err.yaw > 0.1 || angle_err.yaw < -0.1){ angle_err.yaw = 0.0; };
 
     // Calculate P term:
     stab_out.P_term.roll = stab_params.RollP * angle_err.roll;
@@ -113,9 +119,9 @@ PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     stab_out.P_term.yaw = stab_params.YawP * angle_err.yaw;
 
     // Calculate I term:
-    stab_out.I_term.roll = stab_out.prev_Iterm.roll + stab_params.RollI * angle_err.roll*DT;
-    stab_out.I_term.pitch = stab_out.prev_Iterm.pitch + stab_params.PitchI * angle_err.pitch*DT;
-    stab_out.I_term.yaw = stab_out.prev_Iterm.yaw + stab_params.YawI * angle_err.yaw*DT;
+    stab_out.I_term.roll = stab_out.prev_Iterm.roll + (stab_params.RollI/2) * (angle_err.roll + stab_out.prev_err.roll)*DT;
+    stab_out.I_term.pitch = stab_out.prev_Iterm.pitch + (stab_params.PitchI/2) * (angle_err.pitch + stab_out.prev_err.pitch)*DT;
+    stab_out.I_term.yaw = stab_out.prev_Iterm.yaw + (stab_params.YawI/2) * (angle_err.yaw + stab_out.prev_err.yaw)*DT;
 
     // Calculate D term:
     stab_out.D_term.roll = stab_params.RollD * (angle_err.roll - stab_out.prev_err.roll)/DT;
