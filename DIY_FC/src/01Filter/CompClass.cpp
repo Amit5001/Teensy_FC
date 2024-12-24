@@ -18,10 +18,10 @@ void CompFilter::UpdateQ(Measurement_t* meas, float dt){
 
 
     // Model based time propagation
-    qDot1 = 0.5f * (-q.x * meas->gyro.x - q.y * meas->gyro.y - q.z * meas->gyro.z);
-    qDot2 = 0.5f * (q.w * meas->gyro.x + q.y * meas->gyro.z - q.z * meas->gyro.y);
-    qDot3 = 0.5f * (q.w * meas->gyro.y - q.x * meas->gyro.z + q.z * meas->gyro.x);
-    qDot4 = 0.5f * (q.w * meas->gyro.z + q.x * meas->gyro.y - q.y * meas->gyro.x);
+    qDot1 = 0.5f * (-q.x * meas->gyro_HPF.x - q.y * meas->gyro_HPF.y - q.z * meas->gyro_HPF.z);
+    qDot2 = 0.5f * (q.w * meas->gyro_HPF.x + q.y * meas->gyro_HPF.z - q.z * meas->gyro_HPF.y);
+    qDot3 = 0.5f * (q.w * meas->gyro_HPF.y - q.x * meas->gyro_HPF.z + q.z * meas->gyro_HPF.x);
+    qDot4 = 0.5f * (q.w * meas->gyro_HPF.z + q.x * meas->gyro_HPF.y - q.y * meas->gyro_HPF.x);
     
     float BETA = calculateDynamicBeta(*meas);
     //float BETA = DEFAULT_BETA;
@@ -234,24 +234,23 @@ float CompFilter::calculateDynamicBeta(Measurement_t meas) {
 
 void CompFilter::InitialFiltering(Measurement_t* meas){
      // Apply Low-pass Filter to Accel
-    accFiltered.x = (1 - ALPHA_LPF) * accFiltered.x + ALPHA_LPF * meas->acc.x;
-    accFiltered.y = (1 - ALPHA_LPF) * accFiltered.y + ALPHA_LPF * meas->acc.y;
-    accFiltered.z = (1 - ALPHA_LPF) * accFiltered.z + ALPHA_LPF * meas->acc.z;
-    meas->acc.x = accFiltered.x;
-    meas->acc.y = accFiltered.y;
-    meas->acc.z = accFiltered.z;
+    meas->acc.x = (1 - ALPHA_LPF) * meas->acc.x + ALPHA_LPF * meas->acc.x;
+    meas->acc.y = (1 - ALPHA_LPF) * meas->acc.y + ALPHA_LPF * meas->acc.y;
+    meas->acc.z = (1 - ALPHA_LPF) * meas->acc.z + ALPHA_LPF * meas->acc.z;
 
     // Apply High-pass Filter to Gyro
-    static vec3_t gyroPrev = {0.0, 0.0, 0.0};
-    gyroFiltered.x = ALPHA_HPF * (gyroFiltered.x + meas->gyro.x - gyroPrev.x);
-    gyroFiltered.y = ALPHA_HPF * (gyroFiltered.y + meas->gyro.y - gyroPrev.y);
-    gyroFiltered.z = ALPHA_HPF * (gyroFiltered.z + meas->gyro.z - gyroPrev.z);
-    meas->gyro.x = gyroFiltered.x;
-    meas->gyro.y = gyroFiltered.y;
-    meas->gyro.z = gyroFiltered.z;
-    gyroPrev.x = meas->gyro.x;
-    gyroPrev.y = meas->gyro.y;
-    gyroPrev.z = meas->gyro.z;
+    static vec3_t gyroPrev_HPF = {0.0, 0.0, 0.0};
+    meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + meas->gyro.x - gyroPrev_HPF.x);
+    meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + meas->gyro.y - gyroPrev_HPF.y);
+    meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + meas->gyro.z - gyroPrev_HPF.z);
+    gyroPrev_HPF.x = meas->gyro_HPF.x;
+    gyroPrev_HPF.y = meas->gyro_HPF.y;
+    gyroPrev_HPF.z = meas->gyro_HPF.z;
+
+    // Apply Low-pass Filter to Gyro
+    meas->gyro_LPF.x = (1 - ALPHA_LPF) * meas->gyro_LPF.x + ALPHA_LPF * meas->gyro.x;
+    meas->gyro_LPF.y = (1 - ALPHA_LPF) * meas->gyro_LPF.y + ALPHA_LPF * meas->gyro.y;
+    meas->gyro_LPF.z = (1 - ALPHA_LPF) * meas->gyro_LPF.z + ALPHA_LPF * meas->gyro.z;
 
     if (USE_MAG){
         // Apply Low-pass Filter to Mag

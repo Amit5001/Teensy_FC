@@ -2,6 +2,11 @@
 #include <Arduino.h>
 #include <vl53l1x.h>
 #include <Wire.h>
+#include <SPI.h>
+#include <Bitcraze_PMW3901.h>
+
+// VL53L1X sensor object
+VL53L1X sensor;
 
 
 

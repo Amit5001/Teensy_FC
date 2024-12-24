@@ -2,12 +2,15 @@
 #include <03PID_Loop/PID_type.h>
 #include <Var_types.h>
 
+#define BETA_HPF 0.4f
 // attitude_t angle; // Attitude
 // attitude_t angle_des; // Desired attitude
 // attitude_t rate; // Attitude rate
 // attitude_t rate_des; // Desired attitude rate
 attitude_t angle_err; // Attitude error
-attitude_t rate_err; // Attitude rate error
+attitude_t rate_err_HPF;
+attitude_t rate_err_LPF;
+attitude_t rate_err_clean;
 
 // attitude_t angle_err_prev; // Previous attitude error
 // attitude_t rate_err_prev; // Previous attitude rate error
@@ -69,27 +72,43 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RyawPID[3] = nullptr
 }
 
 // PID controller for rate
-PID_out_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
+PID_out_t PID_rate(attitude_t des_rate, Measurement_t meas, float DT) {
     // Calculate error
-    rate_err = des_rate - rate;
-    if (rate_err.roll > 0.1 || rate_err.roll < -0.1){ rate_err.roll = 0.0; };
-    if (rate_err.pitch > 0.1 || rate_err.pitch < -0.1){ rate_err.pitch = 0.0; };
-    if (rate_err.yaw > 0.1 || rate_err.yaw < -0.1){ rate_err.yaw = 0.0; };
+    rate_err_HPF= des_rate - meas.gyro_HPF; // This error is for the Integral term. Removing the bias of the gyro
+    rate_err_LPF = des_rate - meas.gyro_LPF; // This error is for the Derivative term. Removing the noise of the gyro, still have the bias.
+    rate_err_clean = des_rate - meas.gyro; // Probably the best for the Proportional term?
+
+    if (rate_err_clean.roll > 0.1 || rate_err_clean.roll < -0.1){ rate_err_clean.roll = 0.0; };
+    if (rate_err_clean.pitch > 0.1 || rate_err_clean.pitch < -0.1){ rate_err_clean.pitch = 0.0; };
+    if (rate_err_clean.yaw > 0.1 || rate_err_clean.yaw < -0.1){ rate_err_clean.yaw = 0.0; };
+
+    if (rate_err_HPF.roll > 0.1 || rate_err_HPF.roll < -0.1){ rate_err_HPF.roll = 0.0; };
+    if (rate_err_HPF.pitch > 0.1 || rate_err_HPF.pitch < -0.1){ rate_err_HPF.pitch = 0.0; };
+    if (rate_err_HPF.yaw > 0.1 || rate_err_HPF.yaw < -0.1){ rate_err_HPF.yaw = 0.0; };
+
+    if (rate_err_LPF.roll > 0.1 || rate_err_LPF.roll < -0.1){ rate_err_LPF.roll = 0.0; };
+    if (rate_err_LPF.pitch > 0.1 || rate_err_LPF.pitch < -0.1){ rate_err_LPF.pitch = 0.0; };
+    if (rate_err_LPF.yaw > 0.1 || rate_err_LPF.yaw < -0.1){ rate_err_LPF.yaw = 0.0; };
 
     // Calculate P term:
-    rate_out.P_term.roll = rate_params.RollP * rate_err.roll;
-    rate_out.P_term.pitch = rate_params.PitchP * rate_err.pitch;
-    rate_out.P_term.yaw = rate_params.YawP * rate_err.yaw;
+    rate_out.P_term.roll = rate_params.RollP * rate_err_clean.roll;
+    rate_out.P_term.pitch = rate_params.PitchP * rate_err_clean.pitch;
+    rate_out.P_term.yaw = rate_params.YawP * rate_err_clean.yaw;
 
     // Calculate I term:
-    rate_out.I_term.roll = rate_out.prev_Iterm.roll + (rate_params.RollI/2) * (rate_err.roll + rate_out.prev_err.roll)*DT;
-    rate_out.I_term.pitch = rate_out.prev_Iterm.pitch + (rate_params.PitchI/2) * (rate_err.pitch + rate_out.prev_err.pitch)*DT;
-    rate_out.I_term.yaw = rate_out.prev_Iterm.yaw + (rate_params.YawI/2) * (rate_err.yaw + rate_out.prev_err.yaw)*DT;
+    rate_out.I_term.roll = rate_out.prev_Iterm.roll + (rate_params.RollI/2) * (rate_err_HPF.roll + rate_out.prev_errHPF.roll)*DT;
+    rate_out.I_term.pitch = rate_out.prev_Iterm.pitch + (rate_params.PitchI/2) * (rate_err_HPF.pitch + rate_out.prev_errHPF.pitch)*DT;
+    rate_out.I_term.yaw = rate_out.prev_Iterm.yaw + (rate_params.YawI/2) * (rate_err_HPF.yaw + rate_out.prev_errHPF.yaw)*DT;
 
-    // Calculate D term:
-    rate_out.D_term.roll = rate_params.RollD * (rate_err.roll - rate_out.prev_err.roll)/DT;
-    rate_out.D_term.pitch = rate_params.PitchD * (rate_err.pitch - rate_out.prev_err.pitch)/DT;
-    rate_out.D_term.yaw = rate_params.YawD * (rate_err.yaw - rate_out.prev_err.yaw)/DT;
+    // Calculate D term: Explicitly calculating via numerical differentiation
+    // rate_out.D_term.roll = rate_params.RollD * (rate_err_LPF.roll - rate_out.prev_errLPF.roll)/DT;
+    // rate_out.D_term.pitch = rate_params.PitchD * (rate_err_LPF.pitch - rate_out.prev_errLPF.pitch)/DT;
+    // rate_out.D_term.yaw = rate_params.YawD * (rate_err_LPF.yaw - rate_out.prev_errLPF.yaw)/DT;
+
+    // Calculate D term: Using HPF for differentiation
+    rate_out.D_term.roll = BETA_HPF * (rate_out.D_term.roll + rate_err_LPF.roll - rate_out.prev_errLPF.roll);
+    rate_out.D_term.pitch = BETA_HPF * (rate_out.D_term.pitch + rate_err_LPF.pitch - rate_out.prev_errLPF.pitch);
+    rate_out.D_term.yaw = BETA_HPF * (rate_out.D_term.yaw + rate_err_LPF.yaw - rate_out.prev_errLPF.yaw);
 
     // Cap the I term
     rate_out.I_term.roll = constrain(rate_out.I_term.roll, -rate_params.Imax_roll, rate_params.Imax_roll);
@@ -97,7 +116,8 @@ PID_out_t PID_rate(attitude_t des_rate, attitude_t rate, float DT) {
     rate_out.I_term.yaw = constrain(rate_out.I_term.yaw, -rate_params.Imax_yaw, rate_params.Imax_yaw);
 
     // Time propagation for relevant variables:
-    rate_out.prev_err = rate_err;
+    rate_out.prev_errHPF = rate_err_HPF;
+    rate_out.prev_errLPF = rate_err_LPF;
     rate_out.prev_Iterm = rate_out.I_term;
 
     // Return the output
@@ -123,7 +143,7 @@ PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     stab_out.I_term.pitch = stab_out.prev_Iterm.pitch + (stab_params.PitchI/2) * (angle_err.pitch + stab_out.prev_err.pitch)*DT;
     stab_out.I_term.yaw = stab_out.prev_Iterm.yaw + (stab_params.YawI/2) * (angle_err.yaw + stab_out.prev_err.yaw)*DT;
 
-    // Calculate D term:
+    // Calculate D term: 
     stab_out.D_term.roll = stab_params.RollD * (angle_err.roll - stab_out.prev_err.roll)/DT;
     stab_out.D_term.pitch = stab_params.PitchD * (angle_err.pitch - stab_out.prev_err.pitch)/DT;
     stab_out.D_term.yaw = stab_params.YawD * (angle_err.yaw - stab_out.prev_err.yaw)/DT;

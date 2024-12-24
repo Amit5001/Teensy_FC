@@ -68,7 +68,8 @@ typedef struct{
     vec3_t acc_bias = {0.0, 0.0, 0.0};
     vec3_t gyro;
     vec3_t gyro_bias = {0.0, 0.0, 0.0};
-    float gyro_drift = {0.0};
+    vec3_t gyro_HPF = {0.0, 0.0, 0.0};
+    vec3_t gyro_LPF = {0.0, 0.0, 0.0};
     vec3_t mag;
     vec3_t mag_bias = {0.0, 0.0, 0.0};
     vec3_t initial_mag = {0.0, 0.0, 0.0};
@@ -110,7 +111,7 @@ typedef struct attitude_s{
     float yaw;
 }attitude_t;
 
-// Specify addition operator for attitude_t
+// Specify addition operator for attitude_t: attitude_t + attitude_t
 inline attitude_t operator+(const attitude_t& a,const attitude_t& b) {
     attitude_t result;
     result.roll = a.roll + b.roll;
@@ -119,12 +120,29 @@ inline attitude_t operator+(const attitude_t& a,const attitude_t& b) {
     return result;
 }
 
-// Specify addition operator for attitude_t
+// Specify addition operator for attitude_t: attitude_t - attitude_t
 inline attitude_t operator-(const attitude_t& a,const attitude_t& b) {
     attitude_t result;
     result.roll = a.roll - b.roll;
     result.pitch = a.pitch - b.pitch;
     result.yaw = a.yaw - b.yaw;
+    return result;
+}
+// Attitude + vec3_t
+inline attitude_t operator+(const attitude_t& a,const vec3_t& b) {
+    attitude_t result;
+    result.roll = a.roll + b.x;
+    result.pitch = a.pitch + b.y;
+    result.yaw = a.yaw + b.z;
+    return result;
+}
+
+// Attitude - vec3_t
+inline attitude_t operator-(const attitude_t& a,const vec3_t& b) {
+    attitude_t result;
+    result.roll = a.roll - b.x;
+    result.pitch = a.pitch - b.y;
+    result.yaw = a.yaw - b.z;
     return result;
 }
 
@@ -176,7 +194,10 @@ typedef struct PID_out_s{
     attitude_t D_term;
     attitude_t PID_ret = {0.0, 0.0, 0.0};
     attitude_t prev_err = {0.0, 0.0, 0.0};
+    attitude_t prev_errHPF = {0.0, 0.0, 0.0};
+    attitude_t prev_errLPF = {0.0, 0.0, 0.0};
     attitude_t prev_Iterm = {0.0, 0.0, 0.0};
+    attitude_t prev_Dterm = {0.0, 0.0, 0.0};
 
 }PID_out_t;
 

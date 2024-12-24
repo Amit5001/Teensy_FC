@@ -11,8 +11,8 @@
 #define HIGH_BETA 0.2f
 #define LOW_BETA 0.03f
 #define DEFAULT_BETA 0.05f
-#define ALPHA_LPF 0.25f
-#define ALPHA_HPF 0.75f
+#define ALPHA_LPF 0.6f
+#define ALPHA_HPF 0.4f
 
 class CompFilter {
     public:
