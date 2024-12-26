@@ -24,12 +24,8 @@
 
 // UDP Communication Libraries:
 #include <00UDP/Rtes.h>
-#include <iostream>
-#include <cstdint>
-#include <cstring>
-#include <vector>
-#include <iomanip>
-#include <cmath>
+#include "src/RTCom/RTCom.h"
+
 
 /********************************************** Definitions **********************************************/
 // Motor 3 FL gpio 4
@@ -124,6 +120,7 @@ void GyroMagCalibration();
 void update_controller();
 void IMU_init();
 void mapping_controller(char);
+void UDP_init();
 
 /********************************************** Main Code **********************************************/
 
@@ -320,4 +317,66 @@ void mapping_controller(char state){
         desired_rate.pitch = map(controller_data.pitch, CONTROLLER_MIN, CONTROLLER_MAX, -MAX_RATE, MAX_RATE);
         desired_rate.yaw = map(controller_data.yaw, CONTROLLER_MIN, CONTROLLER_MAX, -MAX_RATE, MAX_RATE);
     }
+}
+
+void UDP_init(){
+    // UDP Communication:
+    #define PP Serial.println("")
+    #define BUF Serial.print("//")
+    #define MPU_TICK_RATE 10000
+    #define MAG 'm'
+    #define P_IMU 'p'
+    #define EUILER 'e'
+    #define RC 'r'
+    #define Quaternion 'q'
+    #define D_RATE 'z'
+    #define MOTOR_PWM_DATA 'a'
+    #define EST_RATE 'n'
+    #define PID_stab_prase 'l'
+    #define PID_rate_prase 'b'
+
+    constexpr uint8_t IP_ADDRESS[4] = {192, 168, 1, 199};
+    constexpr uint16_t PORT_NUMBER = 8888;
+    const SocketAddress SOCKET_ADDRESS = SocketAddress(IP_ADDRESS, PORT_NUMBER);
+    const SocketAddress otherAddress = SocketAddress(IPAddress(192, 168, 1, 10), 12000);
+    RTCom rtcomSocket(SOCKET_ADDRESS, RTComConfig(1, 100, 200, 500));
+    RTComSession *rtcomSession = nullptr;
+
+    float* imu_data = (float*)calloc(6, sizeof(float));
+    uint8_t imu_byte[sizeof(float)*6];
+    float* mag_data = (float*)calloc(3, sizeof(float));
+    uint8_t mag_byte[sizeof(float)*3];
+    float* euler_data = (float*)calloc(3, sizeof(float));
+    uint8_t euler_byte[sizeof(float)*3];
+    float* quaternion_data = (float*)calloc(4, sizeof(float));
+    uint8_t quaternion_byte[sizeof(float)*4];
+    int* rc_ch_data = (int*)calloc(16, sizeof(int));
+    uint8_t rc_byte[sizeof(int)*16];
+    float* desired_rate_data = (float*)calloc(3, sizeof(float));
+    uint8_t desired_rate_byte[sizeof(float)*3];
+    float* estimated_attitude_data = (float*)calloc(3, sizeof(float));
+    uint8_t estimated_attitude_byte[sizeof(float)*3];
+    float* estimated_rate_data = (float*)calloc(3, sizeof(float));
+    uint8_t estimated_rate_byte[sizeof(float)*3];
+    float* PID_stab_out_data = (float*)calloc(12, sizeof(float));
+    uint8_t PID_stab_out_byte[sizeof(float)*12];
+    float* PID_rate_data = (float*)calloc(12, sizeof(float));
+    uint8_t PID_rate_byte[sizeof(float)*12];
+    float* motor_pwm_data = (float*)calloc(4, sizeof(float));
+    uint8_t motor_pwm_byte[sizeof(float)*4];
+
+void onConnection(RTComSession &session) {
+    Serial.printf("Session created with %s\r\n", session.address.toString());
+    rtcomSession = &session;
+
+    session.onReceive([](const uint8_t *bytes, size_t size) {
+        char data[size + 1] = {0};
+        memcpy(data, bytes, size);
+        Serial.println(data);
+    });
+    session.onDisconnect([&session]() {
+        Serial.print("Disconnected session: ");
+        Serial.println(session.address.toString());
+    });
+}
 }
