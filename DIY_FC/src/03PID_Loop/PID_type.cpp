@@ -11,7 +11,7 @@ attitude_t angle_err; // Attitude error
 attitude_t rate_err_HPF;
 attitude_t rate_err_LPF;
 attitude_t rate_err_clean;
-attitude_t rate_err_clean = {0.0, 0.0, 0.0};
+attitude_t rate_err_filt = {0.0, 0.0, 0.0};
 
 // attitude_t angle_err_prev; // Previous attitude error
 // attitude_t rate_err_prev; // Previous attitude rate error

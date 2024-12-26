@@ -128,6 +128,16 @@ inline attitude_t operator-(const attitude_t& a,const attitude_t& b) {
     result.yaw = a.yaw - b.yaw;
     return result;
 }
+
+// Specify multiplication operator for attitude_t: A * attitude_t
+inline attitude_t operator*(const float A ,const attitude_t& b) {
+    attitude_t result;
+    result.roll = A * b.roll;
+    result.pitch = A * b.pitch;
+    result.yaw = A * b.yaw;
+    return result;
+}
+
 // Attitude + vec3_t
 inline attitude_t operator+(const attitude_t& a,const vec3_t& b) {
     attitude_t result;

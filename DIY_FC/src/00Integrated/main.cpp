@@ -23,8 +23,7 @@
 
 
 // UDP Communication Libraries:
-#include <00UDP/Rtes.h>
-#include "src/RTCom/RTCom.h"
+#include <00UDP/RTCom.h>
 
 
 /********************************************** Definitions **********************************************/
@@ -365,6 +364,11 @@ void UDP_init(){
     float* motor_pwm_data = (float*)calloc(4, sizeof(float));
     uint8_t motor_pwm_byte[sizeof(float)*4];
 
+
+    rtcomSocket.begin();
+    rtcomSocket.onConnection(onConnection);
+}
+
 void onConnection(RTComSession &session) {
     Serial.printf("Session created with %s\r\n", session.address.toString());
     rtcomSession = &session;
@@ -378,5 +382,4 @@ void onConnection(RTComSession &session) {
         Serial.print("Disconnected session: ");
         Serial.println(session.address.toString());
     });
-}
 }
