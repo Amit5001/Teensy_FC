@@ -40,7 +40,7 @@
 
 /**** Max Angle and max rate ****/
 #define MAX_ANGLE 30.0f
-#define MAX_RATE 200.0f
+#define MAX_RATE 500.0f
 #define CONTROLLER_MIN 988
 #define CONTROLLER_MAX 2012
 
@@ -62,16 +62,50 @@
 
 
 /**** UDP Communication: ****/
-#define UDP_BRIDGE 1 // 1 to make the bridge of the data 
-#define SEND_DATA 1 // send data 
+float* imu_data = (float*)calloc(6, sizeof(float));
+uint8_t imu_byte[sizeof(float)*6];
+float* mag_data = (float*)calloc(3, sizeof(float));
+uint8_t mag_byte[sizeof(float)*3];
+float* euler_data = (float*)calloc(3, sizeof(float));
+uint8_t euler_byte[sizeof(float)*3];
+float* quaternion_data = (float*)calloc(4, sizeof(float));
+uint8_t quaternion_byte[sizeof(float)*4];
+int* rc_ch_data = (int*)calloc(16, sizeof(int));
+uint8_t rc_byte[sizeof(int)*16];
+float* desired_rate_data = (float*)calloc(3, sizeof(float));
+uint8_t desired_rate_byte[sizeof(float)*3];
+float* estimated_attitude_data = (float*)calloc(3, sizeof(float));
+uint8_t estimated_attitude_byte[sizeof(float)*3];
+float* estimated_rate_data = (float*)calloc(3, sizeof(float));
+uint8_t estimated_rate_byte[sizeof(float)*3];
+float* PID_stab_out_data = (float*)calloc(12, sizeof(float));
+uint8_t PID_stab_out_byte[sizeof(float)*12];
+float* PID_rate_data = (float*)calloc(12, sizeof(float));
+uint8_t PID_rate_byte[sizeof(float)*12];
+float* motor_pwm_data = (float*)calloc(4, sizeof(float));
+uint8_t motor_pwm_byte[sizeof(float)*4];
 #define PP Serial.println("")
+#define BUF Serial.print("//")
 #define MPU_TICK_RATE 10000
 #define MAG 'm'
-#define POLOLU 'p'
-#define euler 'e'
+#define P_IMU 'p'
+#define EUILER 'e'
 #define RC 'r'
-#define RC_ros 'n'
 #define Quaternion 'q'
+#define D_RATE 'z'
+#define MOTOR_PWM_DATA 'a'
+#define EST_RATE 'n'
+#define PID_stab_prase 'l'
+#define PID_rate_prase 'b'
+constexpr uint8_t IP_ADDRESS[4] = {192, 168, 1, 199};
+constexpr uint16_t PORT_NUMBER = 8888;
+const SocketAddress SOCKET_ADDRESS = SocketAddress(IP_ADDRESS, PORT_NUMBER);
+const SocketAddress otherAddress = SocketAddress(IPAddress(192, 168, 1, 10), 12000);
+RTCom rtcomSocket(SOCKET_ADDRESS, RTComConfig(1, 100, 200, 500));
+RTComSession *rtcomSession = nullptr;
+
+
+
 
 #define elrsSerial Serial1  // Use Serial1 for the CRSF communication
 
@@ -104,7 +138,7 @@ float dt = 1/1100.0f;
 
 // Desired Attitude - From the controller:
 attitude_t desired_attitude;
-long mid_value = 1500;
+int mid_value = 1500;
 attitude_t motor_input; // Currently not in use. replaced by PID_rate_out.PID_ret
 attitude_t desired_rate;
 attitude_t estimated_attitude;
@@ -119,7 +153,9 @@ void GyroMagCalibration();
 void update_controller();
 void IMU_init();
 void mapping_controller(char);
-void UDP_init();
+void onConnection(RTComSession &session);
+void convert_Measurment_to_byte();
+void emit_data();
 
 /********************************************** Main Code **********************************************/
 
@@ -128,6 +164,9 @@ void setup() {
     Serial.begin(115200);
     while (!Serial);
     Serial.println("USB Serial initialized");
+
+    rtcomSocket.begin();
+    rtcomSocket.onConnection(onConnection);
 
     // Initialize ELRS Serial:
     elrsSerial.begin(CRSF_BAUDRATE, SERIAL_8N1);
@@ -156,16 +195,10 @@ void loop() {
 
     // Update the quaternion:
     Pololu_filter.UpdateQ(&meas, dt);
-
     // Get the Euler angles:
     Pololu_filter.GetEulerRPYrad(&estimated_attitude, meas.initial_heading);
-
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
-
-    estimated_rate.roll = meas.gyro.x;
-    estimated_rate.pitch = meas.gyro.y;
-    estimated_rate.yaw = meas.gyro.z;
 
     if (controller_data.aux1 > 1500){ // Stabilize mode:
         // This mode only need to contain another PID loop for the angle and then the rate.
@@ -174,23 +207,28 @@ void loop() {
         PID_rate_out = PID_rate(PID_stab_out.PID_ret, meas, dt);
 
     }
-    else{ // Acro mode:
+    else if (controller_data.aux1 < 1500) { // Acro mode:
         mapping_controller('r');
         PID_rate_out = PID_rate(desired_rate, meas, dt);
     }
     // Motor Mixing:
     motors.Motor_Mix(PID_rate_out.PID_ret, controller_data.throttle);
 
+    if (controller_data.throttle < 1100){
+        motors.Disarm();
+        Reset_PID();
+    }
     // Set the motor PWM:
     motors.set_motorPWM();
 
     //Getting the motors struct to send data back:
     motor_pwm = motors.Get_motor();
 
-
-
-    // Send the data to the Python GUI:
-    // UDPSend2Py();
+    // Sending new UDP Packet:
+    convert_Measurment_to_byte();
+    rtcomSocket.process();
+    if (rtcomSocket.isSessionConnected(rtcomSession)){
+        emit_data();};
 }
 
 
@@ -318,57 +356,6 @@ void mapping_controller(char state){
     }
 }
 
-void UDP_init(){
-    // UDP Communication:
-    #define PP Serial.println("")
-    #define BUF Serial.print("//")
-    #define MPU_TICK_RATE 10000
-    #define MAG 'm'
-    #define P_IMU 'p'
-    #define EUILER 'e'
-    #define RC 'r'
-    #define Quaternion 'q'
-    #define D_RATE 'z'
-    #define MOTOR_PWM_DATA 'a'
-    #define EST_RATE 'n'
-    #define PID_stab_prase 'l'
-    #define PID_rate_prase 'b'
-
-    constexpr uint8_t IP_ADDRESS[4] = {192, 168, 1, 199};
-    constexpr uint16_t PORT_NUMBER = 8888;
-    const SocketAddress SOCKET_ADDRESS = SocketAddress(IP_ADDRESS, PORT_NUMBER);
-    const SocketAddress otherAddress = SocketAddress(IPAddress(192, 168, 1, 10), 12000);
-    RTCom rtcomSocket(SOCKET_ADDRESS, RTComConfig(1, 100, 200, 500));
-    RTComSession *rtcomSession = nullptr;
-
-    float* imu_data = (float*)calloc(6, sizeof(float));
-    uint8_t imu_byte[sizeof(float)*6];
-    float* mag_data = (float*)calloc(3, sizeof(float));
-    uint8_t mag_byte[sizeof(float)*3];
-    float* euler_data = (float*)calloc(3, sizeof(float));
-    uint8_t euler_byte[sizeof(float)*3];
-    float* quaternion_data = (float*)calloc(4, sizeof(float));
-    uint8_t quaternion_byte[sizeof(float)*4];
-    int* rc_ch_data = (int*)calloc(16, sizeof(int));
-    uint8_t rc_byte[sizeof(int)*16];
-    float* desired_rate_data = (float*)calloc(3, sizeof(float));
-    uint8_t desired_rate_byte[sizeof(float)*3];
-    float* estimated_attitude_data = (float*)calloc(3, sizeof(float));
-    uint8_t estimated_attitude_byte[sizeof(float)*3];
-    float* estimated_rate_data = (float*)calloc(3, sizeof(float));
-    uint8_t estimated_rate_byte[sizeof(float)*3];
-    float* PID_stab_out_data = (float*)calloc(12, sizeof(float));
-    uint8_t PID_stab_out_byte[sizeof(float)*12];
-    float* PID_rate_data = (float*)calloc(12, sizeof(float));
-    uint8_t PID_rate_byte[sizeof(float)*12];
-    float* motor_pwm_data = (float*)calloc(4, sizeof(float));
-    uint8_t motor_pwm_byte[sizeof(float)*4];
-
-
-    rtcomSocket.begin();
-    rtcomSocket.onConnection(onConnection);
-}
-
 void onConnection(RTComSession &session) {
     Serial.printf("Session created with %s\r\n", session.address.toString());
     rtcomSession = &session;
@@ -382,4 +369,80 @@ void onConnection(RTComSession &session) {
         Serial.print("Disconnected session: ");
         Serial.println(session.address.toString());
     });
+}
+
+void convert_Measurment_to_byte(){
+    imu_data[0] = meas.acc.x;
+    imu_data[1] = meas.acc.y;
+    imu_data[2] =  meas.acc.z;
+    imu_data[3] = meas.gyro.x;
+    imu_data[4] = meas.gyro.y;
+    imu_data[5] = meas.gyro.z;
+    memcpy(imu_byte, imu_data, sizeof(imu_byte));
+    mag_data[0] = meas.mag.x;
+    mag_data[1] = meas.mag.y;
+    mag_data[2] = meas.mag.z;
+    memcpy(mag_byte, mag_data, sizeof(mag_byte));
+    quaternion_data[0] = q_est.w;
+    quaternion_data[1] = q_est.x;
+    quaternion_data[2] = q_est.y;
+    quaternion_data[3] = q_est.z;
+    memcpy(quaternion_byte, quaternion_data, sizeof(quaternion_byte));
+    euler_data[0] = estimated_attitude.pitch;
+    euler_data[1] = estimated_attitude.roll;
+    euler_data[2] = estimated_attitude.yaw;
+    memcpy(euler_byte, euler_data, sizeof(euler_byte));
+    desired_rate_data[0] = desired_rate.pitch;
+    desired_rate_data[1] = desired_rate.roll;
+    desired_rate_data[2] = desired_rate.yaw;
+    memcpy(desired_rate_byte, desired_rate_data, sizeof(desired_rate_byte));
+    estimated_rate_data[0] = estimated_rate.pitch;
+    estimated_rate_data[1] = estimated_rate.roll;
+    estimated_rate_data[2] = estimated_rate.yaw;
+    memcpy(estimated_rate_byte, estimated_rate_data, sizeof(estimated_rate_byte));
+    PID_stab_out_data[0] = PID_stab_out.P_term.pitch;
+    PID_stab_out_data[1] = PID_stab_out.P_term.roll;
+    PID_stab_out_data[2] = PID_stab_out.P_term.yaw;
+    PID_stab_out_data[3] = PID_stab_out.I_term.pitch;
+    PID_stab_out_data[4] = PID_stab_out.I_term.roll;
+    PID_stab_out_data[5] = PID_stab_out.I_term.yaw;
+    PID_stab_out_data[6] = PID_stab_out.D_term.pitch;
+    PID_stab_out_data[7] = PID_stab_out.D_term.roll;
+    PID_stab_out_data[8] = PID_stab_out.D_term.yaw;
+    PID_stab_out_data[9] = PID_stab_out.PID_ret.pitch;
+    PID_stab_out_data[10] = PID_stab_out.PID_ret.roll;
+    PID_stab_out_data[11] = PID_stab_out.PID_ret.yaw;
+    memcpy(PID_stab_out_byte, PID_stab_out_data, sizeof(PID_stab_out_byte));
+    PID_rate_data[0] = PID_rate_out.P_term.pitch;
+    PID_rate_data[1] = PID_rate_out.P_term.roll;
+    PID_rate_data[2] = PID_rate_out.P_term.yaw;
+    PID_rate_data[3] = PID_rate_out.I_term.pitch;
+    PID_rate_data[4] = PID_rate_out.I_term.roll;
+    PID_rate_data[5] = PID_rate_out.I_term.yaw;
+    PID_rate_data[6] = PID_rate_out.D_term.pitch;
+    PID_rate_data[7] = PID_rate_out.D_term.roll;
+    PID_rate_data[8] = PID_rate_out.D_term.yaw;
+    PID_rate_data[9] = PID_rate_out.PID_ret.pitch;
+    PID_rate_data[10] = PID_rate_out.PID_ret.roll;
+    PID_rate_data[11] = PID_rate_out.PID_ret.yaw;
+    memcpy(PID_rate_byte, PID_rate_data, sizeof(PID_rate_byte));
+    motor_pwm_data[0]=motor_pwm.PWM1;
+    motor_pwm_data[1]=motor_pwm.PWM2;
+    motor_pwm_data[2]=motor_pwm.PWM3;
+    motor_pwm_data[3]=motor_pwm.PWM4;
+    memcpy(motor_pwm_byte, motor_pwm_data, sizeof(motor_pwm_byte));
+}
+
+void emit_data(){
+    rtcomSession->emitTyped(imu_byte,sizeof(imu_byte),P_IMU);
+    rtcomSession->emitTyped(mag_byte,sizeof(mag_byte),MAG);
+    rtcomSession->emitTyped(quaternion_byte,sizeof(quaternion_byte),Quaternion);
+    rtcomSession->emitTyped(euler_byte,sizeof(euler_byte),EUILER);
+    rtcomSession->emitTyped(rc_byte,sizeof(rc_byte),RC);
+    rtcomSession->emitTyped(desired_rate_byte,sizeof(desired_rate_byte),D_RATE);
+    // rtcomSession->emitTyped(estimated_attitude_byte,sizeof(estimated_attitude_byte),EST_ATTI);
+    rtcomSession->emitTyped(estimated_rate_byte,sizeof(estimated_rate_byte),EST_RATE);
+    rtcomSession->emitTyped(PID_stab_out_byte,sizeof(PID_stab_out_byte),PID_stab_prase);
+    rtcomSession->emitTyped(PID_rate_byte,sizeof(PID_rate_byte),PID_rate_prase);
+    rtcomSession->emitTyped(motor_pwm_byte,sizeof(motor_pwm_byte),MOTOR_PWM_DATA);
 }

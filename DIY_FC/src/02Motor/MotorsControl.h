@@ -6,9 +6,9 @@
 
 class Motors {
     private:
-        int PWM_MIN = 1000;
+        int PWM_MIN = 1100;
         int PWM_MAX = 2000;
-        int MOTOR_OFF = 0;
+        int MOTOR_OFF = 1000;
         int MOTOR_ARM = 1100;
         int ESC_FREQUENCY;
 

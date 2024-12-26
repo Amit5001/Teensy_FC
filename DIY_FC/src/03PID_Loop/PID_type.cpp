@@ -80,9 +80,12 @@ PID_out_t PID_rate(attitude_t des_rate, Measurement_t meas, float DT) {
     rate_err_filt = ALPHA_LPF * rate_err_filt + (1-ALPHA_LPF) * rate_err_clean;
 
 
-    // if (rate_err_filt.roll > 0.1 || rate_err_filt.roll < -0.1){ rate_err_filt.roll = 0.0; };
-    // if (rate_err_filt.pitch > 0.1 || rate_err_filt.pitch < -0.1){ rate_err_filt.pitch = 0.0; };
-    // if (rate_err_filt.yaw > 0.1 || rate_err_filt.yaw < -0.1){ rate_err_filt.yaw = 0.0; };
+    // if ((rate_err_filt.roll < 0.1 && rate_err_filt.roll > 0.0 ) || rate_err_filt.roll > -0.1 && rate_err_filt.roll < 0.0){ rate_err_filt.roll = 0.0; };
+    // if ((rate_err_filt.pitch < 0.1 && rate_err_filt.pitch > 0.0 ) || rate_err_filt.pitch > -0.1 && rate_err_filt.pitch < 0.0){ rate_err_filt.pitch = 0.0; };
+    // if ((rate_err_filt.yaw < 0.1 && rate_err_filt.yaw > 0.0 ) || rate_err_filt.yaw > -0.1 && rate_err_filt.yaw < 0.0){ rate_err_filt.yaw = 0.0; };
+    if (rate_err_filt.roll < 0.1 && rate_err_filt.roll > -0.1){ rate_err_filt.roll = 0.0; };
+    if (rate_err_filt.pitch < 0.1 && rate_err_filt.pitch > -0.1){ rate_err_filt.pitch = 0.0; };
+    if (rate_err_filt.yaw < 0.1 && rate_err_filt.yaw > -0.1){ rate_err_filt.yaw = 0.0; };
 
     // Calculate P term:
     rate_out.P_term.roll = rate_params.RollP * rate_err_filt.roll;
@@ -122,9 +125,6 @@ PID_out_t PID_rate(attitude_t des_rate, Measurement_t meas, float DT) {
 PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     // Calculate error
     angle_err = des_angle - angle;
-    // if (angle_err.roll > 0.1 || angle_err.roll < -0.1){ angle_err.roll = 0.0; };
-    // if (angle_err.pitch > 0.1 || angle_err.pitch < -0.1){ angle_err.pitch = 0.0; };
-    // if (angle_err.yaw > 0.1 || angle_err.yaw < -0.1){ angle_err.yaw = 0.0; };
 
     // Calculate P term:
     stab_out.P_term.roll = stab_params.RollP * angle_err.roll;
@@ -155,4 +155,12 @@ PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     
 
     return stab_out; // This output is the desired rate. now we can use the PID_rate function to get the motor input values
+}
+
+void Reset_PID(){
+    rate_out.prev_err = {0.0, 0.0, 0.0};
+    rate_out.prev_Iterm = {0.0, 0.0, 0.0};
+    stab_out.prev_err = {0.0, 0.0, 0.0};
+    stab_out.prev_Iterm = {0.0, 0.0, 0.0};
+    rate_err_filt = {0.0, 0.0, 0.0};
 }
