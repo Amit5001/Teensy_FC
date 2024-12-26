@@ -214,12 +214,15 @@ void loop() {
     // Motor Mixing:
     motors.Motor_Mix(PID_rate_out.PID_ret, controller_data.throttle);
 
-    if (controller_data.throttle < 1100){
+    if (controller_data.throttle < 1000){
         motors.Disarm();
         Reset_PID();
     }
     // Set the motor PWM:
-    motors.set_motorPWM();
+    if (controller_data.throttle > 1000){
+        motors.set_motorPWM();
+
+    }
 
     //Getting the motors struct to send data back:
     motor_pwm = motors.Get_motor();
