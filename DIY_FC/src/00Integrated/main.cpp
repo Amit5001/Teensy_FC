@@ -122,7 +122,7 @@ Controller_s controller_data;
 Motors motors(ESC_FREQUENCY, MOTOR1_PIN, MOTOR2_PIN, MOTOR3_PIN, MOTOR4_PIN);
 motor_t motor_pwm;
 const unsigned long PWM_PERIOD = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz
-unsigned long lastCommandTime = 0;
+elapsedMicros motor_timer;
 
 // IMU and Filter Variables:
 LSM6 IMU;
@@ -187,10 +187,10 @@ void setup() {
     initializePIDParams();
     motors.Motors_init();
     GyroMagCalibration(); 
+    
 }
 
 void loop() {
-    unsigned long currentTime = micros();
     // Update ELRS data: Reading from the receiver and updating controller_data variable.
     update_controller();
 
@@ -204,16 +204,21 @@ void loop() {
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
 
+    // Get Actual rates:
+    estimated_rate.roll = meas.gyro.x * rad2deg;
+    estimated_rate.pitch = meas.gyro.y * rad2deg;
+    estimated_rate.yaw = meas.gyro.z * rad2deg;
+
     if (controller_data.aux1 > 1500){ // Stabilize mode:
         // This mode only need to contain another PID loop for the angle and then the rate.
         mapping_controller('s');
         PID_stab_out = PID_stab(desired_attitude, estimated_attitude, dt);
-        PID_rate_out = PID_rate(PID_stab_out.PID_ret, meas, dt);
+        PID_rate_out = PID_rate(PID_stab_out.PID_ret, estimated_rate, dt);
 
     }
     else if (controller_data.aux1 < 1500) { // Acro mode:
         mapping_controller('r');
-        PID_rate_out = PID_rate(desired_rate, meas, dt);
+        PID_rate_out = PID_rate(desired_rate, estimated_rate, dt);
     }
     // Motor Mixing:
     motors.Motor_Mix(PID_rate_out.PID_ret, controller_data.throttle);
@@ -223,9 +228,9 @@ void loop() {
         Reset_PID();
     }
     // Set the motor PWM:
-    if ((controller_data.throttle > 1000) && (currentTime - lastCommandTime >= PWM_PERIOD)){
+    if ((controller_data.throttle > 1000) && (motor_timer >= PWM_PERIOD)){
+        motor_timer = 0;
         motors.set_motorPWM();
-        lastCommandTime = currentTime;
     }
 
     //Getting the motors struct to send data back:
