@@ -186,7 +186,7 @@ void setup() {
     // Initializing motors and PID:
     initializePIDParams();
     motors.Motors_init();
-    GyroMagCalibration();
+    GyroMagCalibration(); 
 }
 
 void loop() {
@@ -225,7 +225,7 @@ void loop() {
     // Set the motor PWM:
     if ((controller_data.throttle > 1000) && (currentTime - lastCommandTime >= PWM_PERIOD)){
         motors.set_motorPWM();
-
+        lastCommandTime = currentTime;
     }
 
     //Getting the motors struct to send data back:
