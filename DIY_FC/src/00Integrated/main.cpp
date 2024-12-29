@@ -36,7 +36,8 @@
 #define MOTOR2_PIN 3
 #define MOTOR3_PIN 4
 #define MOTOR4_PIN 5
-#define ESC_FREQUENCY 250
+#define ESC_FREQUENCY 600
+
 
 /**** Max Angle and max rate ****/
 #define MAX_ANGLE 30.0f
@@ -120,6 +121,8 @@ Controller_s controller_data;
 // Motors Variables:
 Motors motors(ESC_FREQUENCY, MOTOR1_PIN, MOTOR2_PIN, MOTOR3_PIN, MOTOR4_PIN);
 motor_t motor_pwm;
+const unsigned long PWM_PERIOD = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz
+unsigned long lastCommandTime = 0;
 
 // IMU and Filter Variables:
 LSM6 IMU;
@@ -187,6 +190,7 @@ void setup() {
 }
 
 void loop() {
+    unsigned long currentTime = micros();
     // Update ELRS data: Reading from the receiver and updating controller_data variable.
     update_controller();
 
@@ -196,7 +200,7 @@ void loop() {
     // Update the quaternion:
     Pololu_filter.UpdateQ(&meas, dt);
     // Get the Euler angles:
-    Pololu_filter.GetEulerRPYrad(&estimated_attitude, meas.initial_heading);
+    Pololu_filter.GetEulerRPYdeg(&estimated_attitude, meas.initial_heading);
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
 
@@ -219,7 +223,7 @@ void loop() {
         Reset_PID();
     }
     // Set the motor PWM:
-    if (controller_data.throttle > 1000){
+    if ((controller_data.throttle > 1000) && (currentTime - lastCommandTime >= PWM_PERIOD)){
         motors.set_motorPWM();
 
     }
@@ -317,6 +321,7 @@ void update_controller(){
     controller_data.aux1 = elrs.getChannel(6);
     controller_data.aux1 = elrs.getChannel(7);
     controller_data.aux1 = elrs.getChannel(8);
+    if (controller_data.throttle > 1800){controller_data.throttle = 1800;}
 
 }
 

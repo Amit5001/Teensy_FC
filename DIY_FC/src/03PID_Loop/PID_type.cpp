@@ -23,23 +23,27 @@ PID_Params_t stab_params; // PID parameters for stabilization controller
 
 
 // Initialization of PID parameters. Need to run at setup in the main code.
-void initializePIDParams(float RrollPID[3] = nullptr, float RyawPID[3] = nullptr,
-                         float Imax_rate[2] = nullptr, float SrollPID[3] = nullptr,
+void initializePIDParams(float RrollPID[3] = nullptr, float RpitchPID[3] = nullptr, float RyawPID[3] = nullptr,
+                         float Imax_rate[2] = nullptr, float SrollPID[3] = nullptr, float SpitchPID[3] = nullptr,
                          float SyawPID[3] = nullptr, float Imax_stab[2] = nullptr){    // Rate mode parameters
     
     // Default parameter values
     const float defaultRrollPID[3] = {0.1f, 0.01f, 0.01f};
+    const float defaultRpitchPID[3] = {0.1f, 0.01f, 0.01f};
     const float defaultRyawPID[3] = {0.1f, 0.01f, 0.01f};
     const float defaultImax_rate[2] = {100.0f, 100.0f};
     const float defaultSrollPID[3] = {0.1f, 0.01f, 0.01f};
+    const float defaultSpitchPID[3] = {0.1f, 0.01f, 0.01f};
     const float defaultSyawPID[3] = {0.1f, 0.01f, 0.01f};
     const float defaultImax_stab[2] = {100.0f, 100.0f};
 
     // Assign default values if nullptr is passed
     if (RrollPID == nullptr) RrollPID = const_cast<float*>(defaultRrollPID);
+    if (RpitchPID == nullptr) RpitchPID = const_cast<float*>(defaultRpitchPID);
     if (RyawPID == nullptr) RyawPID = const_cast<float*>(defaultRyawPID);
     if (Imax_rate == nullptr) Imax_rate = const_cast<float*>(defaultImax_rate);
     if (SrollPID == nullptr) SrollPID = const_cast<float*>(defaultSrollPID);
+    if (SpitchPID == nullptr) SpitchPID = const_cast<float*>(defaultSpitchPID);
     if (SyawPID == nullptr) SyawPID = const_cast<float*>(defaultSyawPID);
     if (Imax_stab == nullptr) Imax_stab = const_cast<float*>(defaultImax_stab);
 
@@ -47,9 +51,9 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RyawPID[3] = nullptr
     rate_params.RollP = RrollPID[0];
     rate_params.RollI = RrollPID[1];
     rate_params.RollD = RrollPID[2];
-    rate_params.PitchP = rate_params.RollP;
-    rate_params.PitchI = rate_params.RollI;
-    rate_params.PitchD = rate_params.RollD;
+    rate_params.PitchP = RpitchPID[0];
+    rate_params.PitchI = RpitchPID[1];
+    rate_params.PitchD = RpitchPID[2];
     rate_params.YawP = RyawPID[0];
     rate_params.YawI = RyawPID[1];
     rate_params.YawD = RyawPID[2];
@@ -61,9 +65,9 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RyawPID[3] = nullptr
     stab_params.RollP = SrollPID[0];
     stab_params.RollI = SrollPID[1];
     stab_params.RollD = SrollPID[2];
-    stab_params.PitchP = stab_params.RollP;
-    stab_params.PitchI = stab_params.RollI;
-    stab_params.PitchD = stab_params.RollD;
+    stab_params.PitchP = SpitchPID[0];
+    stab_params.PitchI = SpitchPID[1];
+    stab_params.PitchD = SpitchPID[2];
     stab_params.YawP = SyawPID[0];
     stab_params.YawI = SyawPID[1];
     stab_params.YawD = SyawPID[2];
