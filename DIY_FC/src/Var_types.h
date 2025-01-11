@@ -63,6 +63,24 @@ typedef struct baro_s {
   float asl;                // m (ASL = altitude above sea level)
 } baro_t;
 
+// Notch filter data structure
+typedef struct notch_filter_s{
+    float coeffs_a[3];  // IIR coefficients
+    float coeffs_b[3];  // FIR coefficients
+    float inputs[3];    // Input history
+    float outputs[3];   // Output history
+} notch_filter_t;
+
+// Sensor filtering data structure
+typedef struct filter_data_s{
+    notch_filter_t acc_x_notch;
+    notch_filter_t acc_y_notch;
+    notch_filter_t acc_z_notch;
+    vec3_t acc_filtered;
+    vec3_t gyro_filtered;
+    vec3_t mag_filtered;
+} filter_data_t;
+
 typedef struct{
     vec3_t acc;
     vec3_t acc_bias = {0.0, 0.0, 0.0};
@@ -75,6 +93,7 @@ typedef struct{
     vec3_t initial_mag = {0.0, 0.0, 0.0};
     float initial_heading = 0.0;
     baro_t baro_data;
+    filter_data_t filter_data;  // Added filter data structure
 }Measurement_t;
 
 typedef struct flowMeasurement_s {
@@ -232,6 +251,7 @@ typedef struct Controller_s{
     int aux3;
     int aux4;
 }Controller_t; 
+
 
 
 #endif

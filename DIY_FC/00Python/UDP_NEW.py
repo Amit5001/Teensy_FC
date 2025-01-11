@@ -77,7 +77,7 @@ class UDPServer:
 def start_udp_server():
     # Create and start the UDP server
     server_addr = ('0.0.0.0', 12000)
-    client_addr = ('192.168.1.199', 8888)
+    client_addr = ('192.169.1.199', 8888)
     server = UDPServer(server_addr, client_addr)
 
 if __name__ == "__main__":

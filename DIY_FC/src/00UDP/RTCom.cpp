@@ -136,8 +136,17 @@ void RTCom::beginEthernet() {
         delay(1000);  // Small delay to avoid log flooding and give time for hardware check
     }
 
+    // uint8_t mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};  // Test MAC address
+    uint8_t mac[6];
+    qn::Ethernet.setMACAddress(mac);
+
     // Attempting to initialize Ethernet connection
-    while (!qn::Ethernet.begin(bindAddress.ip, qn::Ethernet.subnetMask(), qn::Ethernet.gatewayIP())) {
+    // IPAddress ip=(192,169,1,100);
+    IPAddress subnet(255,255,255,0);
+    IPAddress gateway(192,169,1,1);
+    IPAddress ip(192,169,1,199);
+    while (!qn::Ethernet.begin(ip, subnet, gateway)) {
+    // while (!qn::Ethernet.begin(ip, subnet, gateway)) {
         RTCOM_DEBUG_PRINT(RTCOM_DEBUG_ETHERNET_FAIL);
         delay(1000);  // Small delay to avoid log flooding and give time to retry connection
     }

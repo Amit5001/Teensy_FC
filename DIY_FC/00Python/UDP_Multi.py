@@ -149,7 +149,7 @@ class OrientationListener:
 def start_server_and_graph():
     # Server and Client addresses
     server_addr = ('0.0.0.0', 12000)
-    client_addr = ('192.168.1.199', 8888)
+    client_addr = ('192.169.1.199', 8888)
 
     # Create the UDP server object
     udp_server = UDPServer(server_addr, client_addr)

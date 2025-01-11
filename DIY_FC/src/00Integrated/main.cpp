@@ -98,10 +98,10 @@ uint8_t motor_pwm_byte[sizeof(float)*4];
 #define EST_RATE 'n'
 #define PID_stab_prase 'l'
 #define PID_rate_prase 'b'
-constexpr uint8_t IP_ADDRESS[4] = {192, 168, 1, 199};
+constexpr uint8_t IP_ADDRESS[4] = {192, 169, 1, 199};
 constexpr uint16_t PORT_NUMBER = 8888;
 const SocketAddress SOCKET_ADDRESS = SocketAddress(IP_ADDRESS, PORT_NUMBER);
-const SocketAddress otherAddress = SocketAddress(IPAddress(192, 168, 1, 10), 12000);
+const SocketAddress otherAddress = SocketAddress(IPAddress(192, 169, 1, 10), 12000);
 RTCom rtcomSocket(SOCKET_ADDRESS, RTComConfig(1, 100, 200, 500));
 RTComSession *rtcomSession = nullptr;
 
@@ -123,6 +123,7 @@ Motors motors(ESC_FREQUENCY, MOTOR1_PIN, MOTOR2_PIN, MOTOR3_PIN, MOTOR4_PIN);
 motor_t motor_pwm;
 const unsigned long PWM_PERIOD = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz
 elapsedMicros motor_timer;
+bool is_armed = false;
 
 // IMU and Filter Variables:
 LSM6 IMU;
@@ -148,6 +149,8 @@ attitude_t estimated_attitude;
 attitude_t estimated_rate;
 PID_out_t PID_stab_out;
 PID_out_t PID_rate_out;
+elapsedMicros stab_timer;
+const unsigned long STAB_PERIOD = 1000000 / 300; // 300 Hz period in microseconds
 
 
 /********************************************** Function Prototypes **********************************************/
@@ -156,6 +159,7 @@ void GyroMagCalibration();
 void update_controller();
 void IMU_init();
 void mapping_controller(char);
+void check_arming_state();
 void onConnection(RTComSession &session);
 void convert_Measurment_to_byte();
 void emit_data();
@@ -170,6 +174,7 @@ void setup() {
 
     rtcomSocket.begin();
     rtcomSocket.onConnection(onConnection);
+    Serial.println("UDP initialized");
 
     // Initialize ELRS Serial:
     elrsSerial.begin(CRSF_BAUDRATE, SERIAL_8N1);
@@ -194,6 +199,9 @@ void loop() {
     // Update ELRS data: Reading from the receiver and updating controller_data variable.
     update_controller();
 
+    // Check arming:
+    check_arming_state();
+
     // Update the measurement:
     Update_Measurement();
 
@@ -210,27 +218,28 @@ void loop() {
     estimated_rate.yaw = meas.gyro.z * rad2deg;
 
     if (controller_data.aux1 > 1500){ // Stabilize mode:
-        // This mode only need to contain another PID loop for the angle and then the rate.
-        mapping_controller('s');
-        PID_stab_out = PID_stab(desired_attitude, estimated_attitude, dt);
-        PID_rate_out = PID_rate(PID_stab_out.PID_ret, estimated_rate, dt);
-
+        if (stab_timer >= STAB_PERIOD){
+            stab_timer = 0;
+            mapping_controller('s');
+            PID_stab_out = PID_stab(desired_attitude, estimated_attitude, dt);
+            desired_rate = PID_stab_out.PID_ret;
+        }
     }
     else if (controller_data.aux1 < 1500) { // Acro mode:
         mapping_controller('r');
-        PID_rate_out = PID_rate(desired_rate, estimated_rate, dt);
     }
-    // Motor Mixing:
-    motors.Motor_Mix(PID_rate_out.PID_ret, controller_data.throttle);
+
+    // Set the motor PWM:
+    if ((controller_data.throttle > 1000) && (motor_timer >= PWM_PERIOD)){
+        motor_timer = 0;
+        PID_rate_out = PID_rate(desired_rate, estimated_rate, dt);
+        motors.Motor_Mix(PID_rate_out.PID_ret, controller_data.throttle);
+        motors.set_motorPWM();
+    }
 
     if (controller_data.throttle < 1000){
         motors.Disarm();
         Reset_PID();
-    }
-    // Set the motor PWM:
-    if ((controller_data.throttle > 1000) && (motor_timer >= PWM_PERIOD)){
-        motor_timer = 0;
-        motors.set_motorPWM();
     }
 
     //Getting the motors struct to send data back:
@@ -293,22 +302,7 @@ void GyroMagCalibration(){
     meas.initial_mag.y = meas.mag_bias.y;
     meas.initial_mag.z = meas.mag_bias.z;
     meas.initial_heading = atan2f(meas.initial_mag.y, meas.initial_mag.x);
-
-    // int start_time2 = millis();
-    // int num_samples2 = 0;
-    // int sum = 0;
-    // while (millis() - start_time2 < 10000){
-    //   IMU.read();
-    //   float x = IMU.g.x * POL_GYRO_SENS * deg2rad;
-    //   float y = IMU.g.y * POL_GYRO_SENS * deg2rad;
-    //   float z = IMU.g.z * POL_GYRO_SENS * deg2rad;
-    //   sum += (x-meas.gyro_bias.x)*(x-meas.gyro_bias.x) + (y-meas.gyro_bias.y)*(y-meas.gyro_bias.y) + (z-meas.gyro_bias.z)*(z-meas.gyro_bias.z);
-    //   num_samples2++;
-    // }
-    // meas.gyro_drift = sqrtf(sum/num_samples2);
-
-    // Serial.print("Gyro Drift: ");
-    // Serial.println(meas.gyro_drift);
+    
     Serial.println("Finished Gyro calibration");
     delay(2000);
 
@@ -369,6 +363,19 @@ void mapping_controller(char state){
     }
 }
 
+void check_arming_state(){
+    // Using aux2 (channel 6) as the arming switch
+    // You can change this to any aux channel you prefer
+    if (controller_data.aux2 > 1500) {  // Switch is in high position
+        is_armed = true;
+    } else {  // Switch is in low position
+        is_armed = false;
+        motors.Disarm();  // Ensure motors are stopped when disarmed
+        Reset_PID();      // Reset PID states when disarmed
+    }
+}
+
+// *********** UDP Communication Functions *********** //
 void onConnection(RTComSession &session) {
     Serial.printf("Session created with %s\r\n", session.address.toString());
     rtcomSession = &session;
