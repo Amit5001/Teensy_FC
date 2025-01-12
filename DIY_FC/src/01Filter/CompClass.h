@@ -47,28 +47,32 @@ static const float ALPHA_MAG_LPF = (2.0f * PI * MAG_LPF_FREQ * DT / (2.0f * PI *
 class NotchFilter {
 public:
     NotchFilter(float sample_freq, float notch_freq, float bandwidth);
-    float update(float input);
-    void init(notch_filter_t* filter_data);
-    
+    float update(float input);    
 private:
     notch_filter_t* filter_data;
 };
 
 class CompFilter {
 public:
-    CompFilter(bool _MAG = true) : USE_MAG(_MAG) {
+    CompFilter(bool _MAG = true, float Notch_freq = 600.0f, float acc_notch_bw = 30.0f, float gyro_notch_bw = 45.0f) : USE_MAG(_MAG) {
         q = {0.0f, 0.0f, 0.0f, 1.0f};
             // Initialize notch filters
         float sample_freq = RATE_1000_HZ;  // Assuming 1kHz sample rate
-        acc_notch_filters[0] = new NotchFilter(sample_freq, MOTOR_FREQ, NOTCH_BW);
-        acc_notch_filters[1] = new NotchFilter(sample_freq, MOTOR_FREQ, NOTCH_BW);
-        acc_notch_filters[2] = new NotchFilter(sample_freq, MOTOR_FREQ, NOTCH_BW);
+
+        // Store filter parameters
+        this->Notch_freq = Notch_freq;
+        this->acc_notch_bw = acc_notch_bw;
+        this->gyro_notch_bw = gyro_notch_bw;
+
+        acc_notch_filters[0] = new NotchFilter(sample_freq, Notch_freq, acc_notch_bw);
+        acc_notch_filters[1] = new NotchFilter(sample_freq, Notch_freq, acc_notch_bw);
+        acc_notch_filters[2] = new NotchFilter(sample_freq, Notch_freq, acc_notch_bw);
 
         // Initialize notch filters for gyro - wider bandwidth and slightly different frequency
         // because gyros might pick up harmonics differently
-        gyro_notch_filters[0] = new NotchFilter(sample_freq, MOTOR_FREQ, NOTCH_BW * 1.5f);
-        gyro_notch_filters[1] = new NotchFilter(sample_freq, MOTOR_FREQ, NOTCH_BW * 1.5f);
-        gyro_notch_filters[2] = new NotchFilter(sample_freq, MOTOR_FREQ, NOTCH_BW * 1.5f);
+        gyro_notch_filters[0] = new NotchFilter(sample_freq, Notch_freq, gyro_notch_bw);
+        gyro_notch_filters[1] = new NotchFilter(sample_freq, Notch_freq, gyro_notch_bw);
+        gyro_notch_filters[2] = new NotchFilter(sample_freq, Notch_freq, gyro_notch_bw);
     }
 
     // Core functions
@@ -83,6 +87,11 @@ private:
     quat_t q;
     float gyroNorm;
     float gravX, gravY, gravZ;
+
+    // Notch filter parameters
+    float Notch_freq;
+    float acc_notch_bw;
+    float gyro_notch_bw;
 
     // Utility functions
     void InitialFiltering(Measurement_t* meas);

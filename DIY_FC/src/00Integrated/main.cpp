@@ -138,7 +138,7 @@ vec3_t euler_angles;
 
 // Filter Object:
 CompFilter Pololu_filter(true); // True for enabling the magnetometer
-float dt = 1/1100.0f;
+float dt = 1/1100.0f; // 1kHz sample rate in seconds
 
 // Desired Attitude - From the controller:
 attitude_t desired_attitude;
@@ -151,6 +151,7 @@ PID_out_t PID_stab_out;
 PID_out_t PID_rate_out;
 elapsedMicros stab_timer;
 const unsigned long STAB_PERIOD = 1000000 / 300; // 300 Hz period in microseconds
+float t_PID = 0.0f;
 
 
 /********************************************** Function Prototypes **********************************************/
@@ -217,13 +218,13 @@ void loop() {
     estimated_rate.pitch = meas.gyro.y * rad2deg;
     estimated_rate.yaw = meas.gyro.z * rad2deg;
 
-    if (controller_data.aux1 > 1500){ // Stabilize mode:
-        if (stab_timer >= STAB_PERIOD){
-            stab_timer = 0;
+    if ((controller_data.aux1 > 1500) && (stab_timer >= STAB_PERIOD)){ // Stabilize mode:
+            // Calculating dt for the PID- in seconds:
+            t_PID = (float)stab_timer / 1000000.0f;
             mapping_controller('s');
-            PID_stab_out = PID_stab(desired_attitude, estimated_attitude, dt);
+            PID_stab_out = PID_stab(desired_attitude, estimated_attitude, t_PID);
             desired_rate = PID_stab_out.PID_ret;
-        }
+            stab_timer = 0;
     }
     else if (controller_data.aux1 < 1500) { // Acro mode:
         mapping_controller('r');
@@ -231,16 +232,18 @@ void loop() {
 
     // Set the motor PWM:
     if ((controller_data.throttle > 1000) && (motor_timer >= PWM_PERIOD)){
-        motor_timer = 0;
-        PID_rate_out = PID_rate(desired_rate, estimated_rate, dt);
+        t_PID = (float)motor_timer / 1000000.0f;
+        PID_rate_out = PID_rate(desired_rate, estimated_rate, t_PID);
         motors.Motor_Mix(PID_rate_out.PID_ret, controller_data.throttle);
         motors.set_motorPWM();
+        motor_timer = 0;
+
     }
 
-    if (controller_data.throttle < 1000){
-        motors.Disarm();
-        Reset_PID();
-    }
+    // if (controller_data.throttle < 1000){
+    //     motors.Disarm();
+    //     Reset_PID();
+    // }
 
     //Getting the motors struct to send data back:
     motor_pwm = motors.Get_motor();
