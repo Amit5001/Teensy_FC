@@ -5,11 +5,11 @@
 
 // Initialization of the motors
 void Motors::Motors_init(){
-    // Set the PWM frequency for the ESCs
+    // Set the PWM frequency for the ESCs. All pins are connected to the same timer, setting the frequency for one pin will set it for all.
     analogWriteFrequency(Motor_struct.M1_pin, ESC_FREQUENCY);
-    analogWriteFrequency(Motor_struct.M2_pin, ESC_FREQUENCY);
-    analogWriteFrequency(Motor_struct.M3_pin, ESC_FREQUENCY);
-    analogWriteFrequency(Motor_struct.M4_pin, ESC_FREQUENCY);
+    // analogWriteFrequency(Motor_struct.M2_pin, ESC_FREQUENCY);
+    // analogWriteFrequency(Motor_struct.M3_pin, ESC_FREQUENCY);
+    // analogWriteFrequency(Motor_struct.M4_pin, ESC_FREQUENCY);
 
     // Set the PWM resolution for the ESCs
     analogWriteResolution(12);
@@ -60,6 +60,18 @@ void Motors::Motor_Mix(attitude_t motor_input, int throttle) {
     Motor_struct.PWM2 = constrain(Motor_struct.PWM2, 1100, 1900);
     Motor_struct.PWM3 = constrain(Motor_struct.PWM3, 1100, 1900);
     Motor_struct.PWM4 = constrain(Motor_struct.PWM4, 1100, 1900);
+
+    // // Convert microseconds (1000-2000) to PWM values (0-4095)
+    // Motor_struct.PWM1 = Motor_struct.PWM1 * PWM_MAX / (1000000 / ESC_FREQUENCY);
+    // Motor_struct.PWM2 = Motor_struct.PWM2 * PWM_MAX / (1000000 / ESC_FREQUENCY);
+    // Motor_struct.PWM3 = Motor_struct.PWM3 * PWM_MAX / (1000000 / ESC_FREQUENCY);
+    // Motor_struct.PWM4 = Motor_struct.PWM4 * PWM_MAX / (1000000 / ESC_FREQUENCY);
+
+    // Convert motors values from (1000-2000) in microseconds to (0-4095) PWM values:
+    Motor_struct.PWM1 = map(Motor_struct.PWM1, 1100, 1900, PWM_MIN_MAP, PWM_MAX_MAP);
+    Motor_struct.PWM2 = map(Motor_struct.PWM2, 1100, 1900, PWM_MIN_MAP, PWM_MAX_MAP);
+    Motor_struct.PWM3 = map(Motor_struct.PWM3, 1100, 1900, PWM_MIN_MAP, PWM_MAX_MAP);
+    Motor_struct.PWM4 = map(Motor_struct.PWM4, 1100, 1900, PWM_MIN_MAP, PWM_MAX_MAP);
 }
 
 

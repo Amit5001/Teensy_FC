@@ -43,67 +43,32 @@ static const float ALPHA_MAG_LPF = (2.0f * PI * MAG_LPF_FREQ * DT / (2.0f * PI *
 #define ACC_LPF_CUTOFF 10.0f
 #define GYRO_LPF_CUTOFF 50.0f
 
-
-class NotchFilter {
-public:
-    NotchFilter(float sample_freq, float notch_freq, float bandwidth);
-    float update(float input);    
-private:
-    notch_filter_t* filter_data;
-};
-
 class CompFilter {
-public:
-    CompFilter(bool _MAG = true, float Notch_freq = 600.0f, float acc_notch_bw = 30.0f, float gyro_notch_bw = 45.0f) : USE_MAG(_MAG) {
-        q = {0.0f, 0.0f, 0.0f, 1.0f};
-            // Initialize notch filters
-        float sample_freq = RATE_1000_HZ;  // Assuming 1kHz sample rate
+    public:
+        CompFilter(bool _MAG = 1) : USE_MAG(_MAG) {}
+        bool USE_MAG;
 
-        // Store filter parameters
-        this->Notch_freq = Notch_freq;
-        this->acc_notch_bw = acc_notch_bw;
-        this->gyro_notch_bw = gyro_notch_bw;
 
-        acc_notch_filters[0] = new NotchFilter(sample_freq, Notch_freq, acc_notch_bw);
-        acc_notch_filters[1] = new NotchFilter(sample_freq, Notch_freq, acc_notch_bw);
-        acc_notch_filters[2] = new NotchFilter(sample_freq, Notch_freq, acc_notch_bw);
+        quat_t q = {0.0, 0.0, 0.0, 1.0};
+        // Params for HPF and LPF:
+        vec3_t accFiltered = {0.0, 0.0, 0.0};
+        vec3_t gyroFiltered = {0.0, 0.0, 0.0};
+        vec3_t magFiltered = {0.0, 0.0, 0.0};
+        float gyroNorm = 0.0;
+        float drift = 0.0;
+        float driftRate = 0.005;
+        float gravX , gravY, gravZ; // Unit vector in the direction of the estimated gravity
 
-        // Initialize notch filters for gyro - wider bandwidth and slightly different frequency
-        // because gyros might pick up harmonics differently
-        gyro_notch_filters[0] = new NotchFilter(sample_freq, Notch_freq, gyro_notch_bw);
-        gyro_notch_filters[1] = new NotchFilter(sample_freq, Notch_freq, gyro_notch_bw);
-        gyro_notch_filters[2] = new NotchFilter(sample_freq, Notch_freq, gyro_notch_bw);
-    }
 
-    // Core functions
-    void UpdateQ(Measurement_t* meas, float dt);
-    void GetQuaternion(quat_t* q_);
-    void GetEulerRPYrad(attitude_s* rpy, float initial_heading);
-    void GetEulerRPYdeg(attitude_s* rpy, float initial_heading);
-    
-private:
-    // Core variables
-    bool USE_MAG;
-    quat_t q;
-    float gyroNorm;
-    float gravX, gravY, gravZ;
-
-    // Notch filter parameters
-    float Notch_freq;
-    float acc_notch_bw;
-    float gyro_notch_bw;
-
-    // Utility functions
-    void InitialFiltering(Measurement_t* meas);
-    float calculateDynamicBeta(Measurement_t meas);
-    float invSqrt(float x);
-    void estimatedGravityDir(float* gx, float* gy, float* gz);
-    float GetAccZ(float ax, float ay, float az);
-    
-    // Notch filter instances
-    NotchFilter* acc_notch_filters[3];
-    NotchFilter* gyro_notch_filters[3];
+        void UpdateQ(Measurement_t* , float );
+        void InitialFiltering(Measurement_t* );
+        float calculateDynamicBeta(Measurement_t );
+        float invSqrt(float x);
+        void GetQuaternion(quat_t* q_);
+        void GetEulerRPYrad(attitude_s* , float);
+        void GetEulerRPYdeg(attitude_s* , float);
+        void estimatedGravityDir(float* , float* , float*);
+        float GetAccZ(float , float , float );
 };
-
 
 #endif

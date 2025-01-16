@@ -3,55 +3,6 @@
 #include <Var_types.h>
 
 
-// NotchFilter implementation
-NotchFilter::NotchFilter(float sample_freq, float notch_freq, float bandwidth) {
-    float omega = 2.0f * PI * notch_freq / sample_freq;
-    float alpha = sin(omega) * sinh(log(2.0f) / 2.0f * bandwidth * omega / sin(omega));
-    
-    filter_data = new notch_filter_t();
-    
-    filter_data->coeffs_b[0] = 1.0f;
-    filter_data->coeffs_b[1] = -2.0f * cos(omega);
-    filter_data->coeffs_b[2] = 1.0f;
-    
-    filter_data->coeffs_a[0] = 1.0f + alpha;
-    filter_data->coeffs_a[1] = -2.0f * cos(omega);
-    filter_data->coeffs_a[2] = 1.0f - alpha;
-    
-    // Normalize coefficients
-    filter_data->coeffs_b[0] /= filter_data->coeffs_a[0];
-    filter_data->coeffs_b[1] /= filter_data->coeffs_a[0];
-    filter_data->coeffs_b[2] /= filter_data->coeffs_a[0];
-    filter_data->coeffs_a[1] /= filter_data->coeffs_a[0];
-    filter_data->coeffs_a[2] /= filter_data->coeffs_a[0];
-    filter_data->coeffs_a[0] = 1.0f;
-    
-    // Initialize histories
-    for(int i = 0; i < 3; i++) {
-        filter_data->inputs[i] = 0.0f;
-        filter_data->outputs[i] = 0.0f;
-    }
-}
-
-float NotchFilter::update(float input) {
-    // Shift histories
-    filter_data->inputs[2] = filter_data->inputs[1];
-    filter_data->inputs[1] = filter_data->inputs[0];
-    filter_data->inputs[0] = input;
-    
-    filter_data->outputs[2] = filter_data->outputs[1];
-    filter_data->outputs[1] = filter_data->outputs[0];
-    
-    // Calculate new output
-    filter_data->outputs[0] = filter_data->coeffs_b[0] * filter_data->inputs[0] + 
-                             filter_data->coeffs_b[1] * filter_data->inputs[1] + 
-                             filter_data->coeffs_b[2] * filter_data->inputs[2] -
-                             filter_data->coeffs_a[1] * filter_data->outputs[1] - 
-                             filter_data->coeffs_a[2] * filter_data->outputs[2];
-    
-    return filter_data->outputs[0];
-}
-
 void CompFilter::UpdateQ(Measurement_t* meas, float dt){
     float recipNorm;
     float s0, s1, s2, s3;
@@ -266,56 +217,81 @@ float CompFilter::calculateDynamicBeta(Measurement_t meas) {
     // Adapt Beta based on gyroscope norm
     if (gyroNorm < LOW_MOTION) {
         // System is likely stable or slow-moving, increase Beta for more correction
-        Serial.println("Low Motion");
+        // Serial.println("Low Motion");
         return HIGH_BETA;
     } else if (gyroNorm > HIGH_MOTION) {
         // System is moving fast, reduce Beta to rely more on gyroscope
-        Serial.println("High Motion");
+        // Serial.println("High Motion");
         return LOW_BETA;
     } else {
         // Default case, normal correction
-        Serial.println("Default Motion");
+        // Serial.println("Default Motion");
         return DEFAULT_BETA;
     }
 }
 
 
-void CompFilter::InitialFiltering(Measurement_t* meas) {
-    // First apply notch filter to accelerometer data
-    float acc_x = acc_notch_filters[0]->update(meas->acc.x);
-    float acc_y = acc_notch_filters[1]->update(meas->acc.y);
-    float acc_z = acc_notch_filters[2]->update(meas->acc.z);
+// void CompFilter::InitialFiltering(Measurement_t* meas) {
 
-    // Then apply low-pass filter to accelerometer data
-    meas->acc.x = meas->filter_data.acc_filtered.x = (1 - ALPHA_ACC_LPF) * meas->filter_data.acc_filtered.x + ALPHA_ACC_LPF * acc_x;
-    meas->acc.y = meas->filter_data.acc_filtered.y = (1 - ALPHA_ACC_LPF) * meas->filter_data.acc_filtered.y + ALPHA_ACC_LPF * acc_y;
-    meas->acc.z = meas->filter_data.acc_filtered.z = (1 - ALPHA_ACC_LPF) * meas->filter_data.acc_filtered.z + ALPHA_ACC_LPF * acc_z;
+//     // Then apply low-pass filter to accelerometer data
+//     meas->acc.x = meas->filter_data.acc_filtered.x = (1 - ALPHA_ACC_LPF) * meas->filter_data.acc_filtered.x + ALPHA_ACC_LPF * acc_x;
+//     meas->acc.y = meas->filter_data.acc_filtered.y = (1 - ALPHA_ACC_LPF) * meas->filter_data.acc_filtered.y + ALPHA_ACC_LPF * acc_y;
+//     meas->acc.z = meas->filter_data.acc_filtered.z = (1 - ALPHA_ACC_LPF) * meas->filter_data.acc_filtered.z + ALPHA_ACC_LPF * acc_z;
 
-    // Process gyro data
-    // First notch filter
-    float gyro_x = gyro_notch_filters[0]->update(meas->gyro.x);
-    float gyro_y = gyro_notch_filters[1]->update(meas->gyro.y);
-    float gyro_z = gyro_notch_filters[2]->update(meas->gyro.z);
-    
-    // Then high-pass filter
-    static vec3_t gyroPrev_HPF = {0.0f, 0.0f, 0.0f};
-    meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + gyro_x - gyroPrev_HPF.x);
-    meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + gyro_y - gyroPrev_HPF.y);
-    meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + gyro_z - gyroPrev_HPF.z);
-    gyroPrev_HPF = meas->gyro_HPF;
+//     // Process gyro data
+//     // Then high-pass filter
+//     static vec3_t gyroPrev_HPF = {0.0f, 0.0f, 0.0f};
+//     meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + gyro_x - gyroPrev_HPF.x);
+//     meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + gyro_y - gyroPrev_HPF.y);
+//     meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + gyro_z - gyroPrev_HPF.z);
+//     gyroPrev_HPF = meas->gyro_HPF;
 
-    // And low-pass filter
-    meas->gyro_LPF.x = meas->filter_data.gyro_filtered.x = (1 - ALPHA_GYRO_LPF) * meas->filter_data.gyro_filtered.x + ALPHA_GYRO_LPF * gyro_x;
-    meas->gyro_LPF.y = meas->filter_data.gyro_filtered.y = (1 - ALPHA_GYRO_LPF) * meas->filter_data.gyro_filtered.y + ALPHA_GYRO_LPF * gyro_y;
-    meas->gyro_LPF.z = meas->filter_data.gyro_filtered.z = (1 - ALPHA_GYRO_LPF) * meas->filter_data.gyro_filtered.z + ALPHA_GYRO_LPF * gyro_z;
+//     // And low-pass filter
+//     meas->gyro_LPF.x = meas->filter_data.gyro_filtered.x = (1 - ALPHA_GYRO_LPF) * meas->filter_data.gyro_filtered.x + ALPHA_GYRO_LPF * gyro_x;
+//     meas->gyro_LPF.y = meas->filter_data.gyro_filtered.y = (1 - ALPHA_GYRO_LPF) * meas->filter_data.gyro_filtered.y + ALPHA_GYRO_LPF * gyro_y;
+//     meas->gyro_LPF.z = meas->filter_data.gyro_filtered.z = (1 - ALPHA_GYRO_LPF) * meas->filter_data.gyro_filtered.z + ALPHA_GYRO_LPF * gyro_z;
 
 
-    if (USE_MAG) {
-        // Apply Low-pass Filter to Mag with modified alpha
-        meas->filter_data.mag_filtered.x = (1 - ALPHA_MAG_LPF) * meas->filter_data.mag_filtered.x + ALPHA_MAG_LPF * meas->mag.x;
-        meas->filter_data.mag_filtered.y = (1 - ALPHA_MAG_LPF) * meas->filter_data.mag_filtered.y + ALPHA_MAG_LPF * meas->mag.y;
-        meas->filter_data.mag_filtered.z = (1 - ALPHA_MAG_LPF) * meas->filter_data.mag_filtered.z + ALPHA_MAG_LPF * meas->mag.z;
+//     if (USE_MAG) {
+//         // Apply Low-pass Filter to Mag with modified alpha
+//         meas->filter_data.mag_filtered.x = (1 - ALPHA_MAG_LPF) * meas->filter_data.mag_filtered.x + ALPHA_MAG_LPF * meas->mag.x;
+//         meas->filter_data.mag_filtered.y = (1 - ALPHA_MAG_LPF) * meas->filter_data.mag_filtered.y + ALPHA_MAG_LPF * meas->mag.y;
+//         meas->filter_data.mag_filtered.z = (1 - ALPHA_MAG_LPF) * meas->filter_data.mag_filtered.z + ALPHA_MAG_LPF * meas->mag.z;
         
-        meas->mag = meas->filter_data.mag_filtered;
+//         meas->mag = meas->filter_data.mag_filtered;
+//     }
+// }
+
+void CompFilter::InitialFiltering(Measurement_t* meas){
+    
+    accFiltered.x = (1 - ALPHA_ACC_LPF) * accFiltered.x + ALPHA_ACC_LPF * meas->acc.x;
+    accFiltered.y = (1 - ALPHA_ACC_LPF) * accFiltered.y + ALPHA_ACC_LPF * meas->acc.y;
+    accFiltered.z = (1 - ALPHA_ACC_LPF) * accFiltered.z + ALPHA_ACC_LPF * meas->acc.z;
+    meas->acc.x = accFiltered.x;
+    meas->acc.y = accFiltered.y;
+    meas->acc.z = accFiltered.z;
+
+
+    static vec3_t gyroPrev_HPF = {0.0, 0.0, 0.0};
+    meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + meas->gyro.x - gyroPrev_HPF.x);
+    meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + meas->gyro.y - gyroPrev_HPF.y);
+    meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + meas->gyro.z - gyroPrev_HPF.z);
+    gyroPrev_HPF.x = meas->gyro_HPF.x;
+    gyroPrev_HPF.y = meas->gyro_HPF.y;
+    gyroPrev_HPF.z = meas->gyro_HPF.z;
+    // Apply Low-pass Filter to Gyro
+    meas->gyro_LPF.x = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.x + ALPHA_GYRO_LPF * meas->gyro.x;
+    meas->gyro_LPF.y = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.y + ALPHA_GYRO_LPF * meas->gyro.y;
+    meas->gyro_LPF.z = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.z + ALPHA_GYRO_LPF * meas->gyro.z;
+
+    if (USE_MAG){
+        // Apply Low-pass Filter to Mag
+        magFiltered.x = (1 - ALPHA_MAG_LPF) * magFiltered.x + ALPHA_MAG_LPF * meas->mag.x;
+        magFiltered.y = (1 - ALPHA_MAG_LPF) * magFiltered.y + ALPHA_MAG_LPF * meas->mag.y;
+        magFiltered.z = (1 - ALPHA_MAG_LPF) * magFiltered.z + ALPHA_MAG_LPF * meas->mag.z;
+        meas->mag.x = magFiltered.x;
+        meas->mag.y = magFiltered.y;
+        meas->mag.z = magFiltered.z;
     }
+
 }

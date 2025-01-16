@@ -36,7 +36,7 @@
 #define MOTOR2_PIN 3
 #define MOTOR3_PIN 4
 #define MOTOR4_PIN 5
-#define ESC_FREQUENCY 600
+#define ESC_FREQUENCY 500
 
 
 /**** Max Angle and max rate ****/
@@ -121,8 +121,7 @@ Controller_s controller_data;
 // Motors Variables:
 Motors motors(ESC_FREQUENCY, MOTOR1_PIN, MOTOR2_PIN, MOTOR3_PIN, MOTOR4_PIN);
 motor_t motor_pwm;
-const unsigned long PWM_PERIOD = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz
-elapsedMicros motor_timer;
+const unsigned long PWM_PERIOD = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz. Recieving PWM signal every 2ms
 bool is_armed = false;
 
 // IMU and Filter Variables:
@@ -149,9 +148,12 @@ attitude_t estimated_attitude;
 attitude_t estimated_rate;
 PID_out_t PID_stab_out;
 PID_out_t PID_rate_out;
-elapsedMicros stab_timer;
 const unsigned long STAB_PERIOD = 1000000 / 300; // 300 Hz period in microseconds
 float t_PID = 0.0f;
+
+// Timers:
+elapsedMicros motor_timer;
+elapsedMicros stab_timer;
 
 
 /********************************************** Function Prototypes **********************************************/
@@ -213,6 +215,7 @@ void loop() {
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
 
+    Serial.println(estimated_attitude.pitch);
     // Get Actual rates:
     estimated_rate.roll = meas.gyro.x * rad2deg;
     estimated_rate.pitch = meas.gyro.y * rad2deg;
@@ -239,12 +242,7 @@ void loop() {
         motor_timer = 0;
 
     }
-
-    // if (controller_data.throttle < 1000){
-    //     motors.Disarm();
-    //     Reset_PID();
-    // }
-
+    
     //Getting the motors struct to send data back:
     motor_pwm = motors.Get_motor();
 
