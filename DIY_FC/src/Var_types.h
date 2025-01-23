@@ -27,6 +27,8 @@ Description: This file contains the definition of the different types used in th
 
 #include <Arduino.h>
 
+#define ESC_FREQUENCY 500  // Frequency of the ESCs
+
 // Frequencies to be used with the RATE_DO_EXECUTE_HZ macro. Do NOT use an arbitrary number.
 #define RATE_1000_HZ 1000
 #define RATE_500_HZ 500
@@ -83,12 +85,14 @@ typedef struct filter_data_s{
 
 typedef struct{
     vec3_t acc;
+    vec3_t acc_LPF = {0.0, 0.0, 0.0};
     vec3_t acc_bias = {0.0, 0.0, 0.0};
     vec3_t gyro;
     vec3_t gyro_bias = {0.0, 0.0, 0.0};
     vec3_t gyro_HPF = {0.0, 0.0, 0.0};
     vec3_t gyro_LPF = {0.0, 0.0, 0.0};
     vec3_t mag;
+    vec3_t mag_LPF = {0.0, 0.0, 0.0};
     vec3_t mag_bias = {0.0, 0.0, 0.0};
     vec3_t initial_mag = {0.0, 0.0, 0.0};
     float initial_heading = 0.0;
