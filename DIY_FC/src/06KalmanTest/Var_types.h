@@ -1,27 +1,3 @@
-/*
-Written by: Amit Gedj
-Date: 15.10.24
-
-Description: This file contains the definition of the different types used in the project.
-              It also contains the definition of the different rates used in the project.
-              The RATE_DO_EXECUTE macro is used to execute a certain code at a certain rate.
-              The different rates are defined in the RATE_XXX_HZ macros.
-              The different types are defined in the different structs.
-              The different structs are:
-                  - vec3_t: a 3D vector
-                  - quat_t: a quaternion
-                  - baro_t: a barometer measurement
-                  - Measurement_t: a struct containing the different measurements
-                  - flowMeasurement_t: a struct containing the flow measurements
-                  - tofMeasurement_t: a struct containing the TOF measurements
-                  - heightMeasurement_t: a struct containing the height measurements
-                  - attitude_t: a struct containing the attitude angles
-                  - state_t: a struct containing the state of the drone
-                  - StabStep_t: a type used to count the number of stabilization steps
-*/
-
-
-
 #ifndef VAR_TYPES_H
 #define VAR_TYPES_H
 
@@ -43,19 +19,19 @@ Description: This file contains the definition of the different types used in th
 #define RATE_HL_COMMANDER RATE_100_HZ
 #define RATE_SUPERVISOR RATE_25_HZ
 
-static const float SAMPLE_RATE = 833.0f;
-static const float DT = 1.0f/SAMPLE_RATE;
 
-#define RATE_DO_EXECUTE(RATE_HZ, TICK) ((TICK % (RATE_MAIN_LOOP / RATE_HZ)) == 0)
+#define rad2deg 180.0f/PI
+#define PI 3.14159265358979323846f
+#define deg2rad PI / 180.0f
 
-typedef struct{
+
+typedef struct {
     float x;
     float y;
     float z;
 } vec3_t;
 
-
-typedef struct{
+typedef struct {
     float x;
     float y;
     float z;
@@ -63,13 +39,13 @@ typedef struct{
 } quat_t;
 
 typedef struct baro_s {
-  float pressure;           // mbar
-  float temperature;        // degree Celcius
-  float asl;                // m (ASL = altitude above sea level)
+    float pressure;     // mbar
+    float temperature;  // degree Celcius
+    float asl;          // m (ASL = altitude above sea level)
 } baro_t;
 
 // Notch filter data structure
-typedef struct notch_filter_s{
+typedef struct notch_filter_s {
     float coeffs_a[3];  // IIR coefficients
     float coeffs_b[3];  // FIR coefficients
     float inputs[3];    // Input history
@@ -77,7 +53,7 @@ typedef struct notch_filter_s{
 } notch_filter_t;
 
 // Sensor filtering data structure
-typedef struct filter_data_s{
+typedef struct filter_data_s {
     notch_filter_t acc_x_notch;
     notch_filter_t acc_y_notch;
     notch_filter_t acc_z_notch;
@@ -86,7 +62,7 @@ typedef struct filter_data_s{
     vec3_t mag_filtered;
 } filter_data_t;
 
-typedef struct{
+typedef struct {
     vec3_t acc;
     vec3_t acc_LPF = {0.0, 0.0, 0.0};
     vec3_t acc_bias = {0.0, 0.0, 0.0};
@@ -101,44 +77,16 @@ typedef struct{
     float initial_heading = 0.0;
     baro_t baro_data;
     filter_data_t filter_data;  // Added filter data structure
-}Measurement_t;
+} Measurement_t;
 
-typedef struct flowMeasurement_s {
-  uint32_t timestamp;
-  union {
-    struct {
-      float dpixelx;  // Accumulated pixel count x
-      float dpixely;  // Accumulated pixel count y
-    };
-    float dpixel[2];  // Accumulated pixel count
-  };
-  float stdDevX;      // Measurement standard deviation
-  float stdDevY;      // Measurement standard deviation
-  float dt;           // Time during which pixels were accumulated
-} flowMeasurement_t;
-
-/** LiDAR TOF measurement **/
-typedef struct tofMeasurement_s {
-  uint32_t timestamp;
-  float distance;
-  float stdDev;
-} tofMeasurement_t;
-
-/** Absolute height measurement **/
-typedef struct heightMeasurement_s {
-  uint32_t timestamp;
-  float height;
-  float stdDev;
-} heightMeasurement_t;
-
-typedef struct attitude_s{
+typedef struct attitude_s {
     float roll;
     float pitch;
     float yaw;
-}attitude_t;
+} attitude_t;
 
 // Specify addition operator for attitude_t: attitude_t + attitude_t
-inline attitude_t operator+(const attitude_t& a,const attitude_t& b) {
+inline attitude_t operator+(const attitude_t& a, const attitude_t& b) {
     attitude_t result;
     result.roll = a.roll + b.roll;
     result.pitch = a.pitch + b.pitch;
@@ -147,7 +95,7 @@ inline attitude_t operator+(const attitude_t& a,const attitude_t& b) {
 }
 
 // Specify addition operator for attitude_t: attitude_t - attitude_t
-inline attitude_t operator-(const attitude_t& a,const attitude_t& b) {
+inline attitude_t operator-(const attitude_t& a, const attitude_t& b) {
     attitude_t result;
     result.roll = a.roll - b.roll;
     result.pitch = a.pitch - b.pitch;
@@ -156,7 +104,7 @@ inline attitude_t operator-(const attitude_t& a,const attitude_t& b) {
 }
 
 // Specify multiplication operator for attitude_t: A * attitude_t
-inline attitude_t operator*(const float A ,const attitude_t& b) {
+inline attitude_t operator*(const float A, const attitude_t& b) {
     attitude_t result;
     result.roll = A * b.roll;
     result.pitch = A * b.pitch;
@@ -165,7 +113,7 @@ inline attitude_t operator*(const float A ,const attitude_t& b) {
 }
 
 // Attitude + vec3_t
-inline attitude_t operator+(const attitude_t& a,const vec3_t& b) {
+inline attitude_t operator+(const attitude_t& a, const vec3_t& b) {
     attitude_t result;
     result.roll = a.roll + b.x;
     result.pitch = a.pitch + b.y;
@@ -174,7 +122,7 @@ inline attitude_t operator+(const attitude_t& a,const vec3_t& b) {
 }
 
 // Attitude - vec3_t
-inline attitude_t operator-(const attitude_t& a,const vec3_t& b) {
+inline attitude_t operator-(const attitude_t& a, const vec3_t& b) {
     attitude_t result;
     result.roll = a.roll - b.x;
     result.pitch = a.pitch - b.y;
@@ -198,16 +146,16 @@ inline attitude_t& operator-=(attitude_t& a, attitude_t& b) {
     return a;
 }
 
-typedef struct state_s{
+typedef struct state_s {
     attitude_t attitude_angles;
     quat_t attitudeQuaternion;
     float height;
     vec3_t velocity;
     vec3_t position;
     vec3_t acceleration;
-}state_t;
+} state_t;
 
-typedef struct PID_Params_s{
+typedef struct PID_Params_s {
     float RollP;
     float RollI;
     float RollD;
@@ -217,14 +165,13 @@ typedef struct PID_Params_s{
     float YawP;
     float YawI;
     float YawD;
-
     float Imax_roll;
     float Imax_pitch;
     float Imax_yaw;
 
-}PID_Params_t;
+} PID_Params_t;
 
-typedef struct PID_out_s{
+typedef struct PID_out_s {
     attitude_t P_term;
     attitude_t I_term;
     attitude_t D_term;
@@ -235,9 +182,9 @@ typedef struct PID_out_s{
     attitude_t prev_Iterm = {0.0, 0.0, 0.0};
     attitude_t prev_Dterm = {0.0, 0.0, 0.0};
 
-}PID_out_t;
+} PID_out_t;
 
-typedef struct motor_s{
+typedef struct motor_s {
     int M1_pin;
     int M2_pin;
     int M3_pin;
@@ -246,9 +193,9 @@ typedef struct motor_s{
     int PWM2;
     int PWM3;
     int PWM4;
-}motor_t;
+} motor_t;
 
-typedef struct Controller_s{
+typedef struct Controller_s {
     int throttle;
     int roll;
     int pitch;
@@ -257,8 +204,6 @@ typedef struct Controller_s{
     int aux2;
     int aux3;
     int aux4;
-}Controller_t; 
-
-
+} Controller_t;
 
 #endif

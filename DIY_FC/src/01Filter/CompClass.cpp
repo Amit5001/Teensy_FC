@@ -67,8 +67,9 @@ void CompFilter::UpdateQ(Measurement_t* meas, float dt){
 
 
     }
-    if(USE_MAG &&( meas->mag_LPF.x != 0.0 && meas->mag_LPF.y != 0.0 && meas->mag_LPF.z != 0.0) && (gyroNorm > HIGH_MOTION)){
-    //if(USE_MAG &&( meas->mag.x != 0.0 && meas->mag.y != 0.0 && meas->mag.z != 0.0)){
+    // if(USE_MAG &&( meas->mag_LPF.x != 0.0 && meas->mag_LPF.y != 0.0 && meas->mag_LPF.z != 0.0) && (gyroNorm < HIGH_MOTION)){ // Try to check if it works better only when gyro norm is low
+    if(USE_MAG &&( meas->mag_LPF.x != 0.0 && meas->mag_LPF.y != 0.0 && meas->mag_LPF.z != 0.0) && (gyroNorm < HIGH_MOTION)){
+    // if(USE_MAG &&( meas->mag_LPF.x != 0.0 && meas->mag_LPF.y != 0.0 && meas->mag_LPF.z != 0.0)){
 
         // Normalise magnetometer measurement
         recipNorm = invSqrt(meas->mag_LPF.x * meas->mag_LPF.x + meas->mag_LPF.y * meas->mag_LPF.y + meas->mag_LPF.z * meas->mag_LPF.z);
@@ -118,12 +119,18 @@ void CompFilter::UpdateQ(Measurement_t* meas, float dt){
         s2 *= recipNorm;
         s3 *= recipNorm;
 
+        float magTrust = 0.3f;
+        // if (gyroNorm > HIGH_MOTION) {
+        //     magTrust = 0.0f; // Less influence during high motion
+        // } else if (gyroNorm < LOW_MOTION) {
+        //     magTrust = 0.3f; // More influence during low motion
+        // }
 
         // Apply feedback step
-        qDot1 -= BETA * s0;
-        qDot2 -= BETA * s1;
-        qDot3 -= BETA * s2;
-        qDot4 -= BETA * s3;
+        qDot1 -= magTrust * BETA * s0;
+        qDot2 -= magTrust * BETA * s1;
+        qDot3 -= magTrust * BETA * s2;
+        qDot4 -= magTrust * BETA * s3;
 
     }
 
@@ -166,8 +173,8 @@ void CompFilter::GetEulerRPYrad(attitude_s* rpy, float initial_heading){
 
     // Currently returend in radians, can be converted to degrees by multiplying by rad2deg
     rpy->yaw = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z);
-    rpy->pitch = asinf(gx);
-    // rpy->y = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z))
+    // rpy->pitch = asinf(gx);
+    rpy->pitch = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z));
     rpy->roll = atan2f(gy, gz);
 }
 
@@ -182,9 +189,10 @@ void CompFilter::GetEulerRPYdeg(attitude_s* rpy, float initial_heading){
     //     if (rpy->z < 0) {
     //     rpy->z += 360.0f;
     // }
-    rpy->pitch = asinf(gx) * rad2deg;
-    // rpy->y = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z)) * rad2deg;
-    rpy->roll = atan2f(gy, gz) * rad2deg;
+    // rpy->pitch = asinf(gx) * rad2deg;
+    rpy->pitch = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z)) * rad2deg;
+    rpy->roll = atan2f(2 * (q.w * q.x + q.y * q.z), 1 - 2 * (q.x * q.x + q.y * q.y)) * rad2deg;
+    // rpy->roll = atan2f(gy, gz) * rad2deg;
 }
 
 //---------------------------------------------------------------------------------------------------
@@ -228,7 +236,27 @@ float CompFilter::calculateDynamicBeta(Measurement_t meas) {
         // Serial.println("Default Motion");
         return DEFAULT_BETA;
     }
+
 }
+
+// float CompFilter::calculateDynamicBeta(Measurement_t meas) {
+//     gyroNorm = sqrtf(meas.gyro_HPF.x * meas.gyro_HPF.x + 
+//                    meas.gyro_HPF.y * meas.gyro_HPF.y + 
+//                    meas.gyro_HPF.z * meas.gyro_HPF.z);
+    
+//     // More consistent beta values with hysteresis
+//     static float lastBeta = DEFAULT_BETA;
+//     static const float HYSTERESIS = 0.05f;
+    
+//     if (gyroNorm > (LOW_MOTION + HYSTERESIS) || lastBeta == HIGH_BETA) {
+//         if (gyroNorm < (LOW_MOTION - HYSTERESIS))
+//             lastBeta = LOW_BETA;
+//         else
+//             lastBeta = HIGH_BETA;
+//     }
+    
+//     return lastBeta;
+// }
 
 void CompFilter::InitialFiltering(Measurement_t* meas){
     
@@ -237,13 +265,13 @@ void CompFilter::InitialFiltering(Measurement_t* meas){
     meas->acc_LPF.z = (1 - ALPHA_ACC_LPF) * meas->acc_LPF.z + ALPHA_ACC_LPF * meas->acc.z;
 
 
-    static vec3_t gyroPrev_HPF = {0.0, 0.0, 0.0};
-    meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + meas->gyro.x - gyroPrev_HPF.x);
-    meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + meas->gyro.y - gyroPrev_HPF.y);
-    meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + meas->gyro.z - gyroPrev_HPF.z);
-    gyroPrev_HPF.x = meas->gyro_HPF.x;
-    gyroPrev_HPF.y = meas->gyro_HPF.y;
-    gyroPrev_HPF.z = meas->gyro_HPF.z;
+    static vec3_t gyroPrev = {0.0, 0.0, 0.0};
+    meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + meas->gyro.x - gyroPrev.x);
+    meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + meas->gyro.y - gyroPrev.y);
+    meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + meas->gyro.z - gyroPrev.z);
+    gyroPrev.x = meas->gyro.x;
+    gyroPrev.y = meas->gyro.y;
+    gyroPrev.z = meas->gyro.z;
     // Apply Low-pass Filter to Gyro
     meas->gyro_LPF.x = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.x + ALPHA_GYRO_LPF * meas->gyro.x;
     meas->gyro_LPF.y = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.y + ALPHA_GYRO_LPF * meas->gyro.y;

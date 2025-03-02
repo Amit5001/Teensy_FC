@@ -23,7 +23,7 @@
 
 
 // UDP Communication Libraries:
-#include <00UDP/RTCom.h>
+#include <00UDP/Drone_com.h>
 
 
 /********************************************** Definitions **********************************************/
@@ -31,25 +31,24 @@
 #define ELRS_SERIAL 1
 #define MOTOR1_PIN 2
 #define MOTOR2_PIN 3
-#define MOTOR3_PIN 5
-#define MOTOR4_PIN 4
+#define MOTOR3_PIN 4
+#define MOTOR4_PIN 5
 // #define ESC_FREQUENCY 500
 
 
 /**** Max Angle and max rate ****/
-#define MAX_ANGLE 30.0f
+#define MAX_ANGLE 15.0f
 #define MAX_RATE 500.0f
 #define CONTROLLER_MIN 988
 #define CONTROLLER_MAX 2012
 
 
 /**** IMU Data parameters:  ****/
-#define POL_GYRO_SENS 4.375/1000.0f    // FS = 125
+#define POL_GYRO_SENS 17.5/1000.0f    // FS = 500
 #define POL_ACC_SENS 0.061/1000.0f     // FS = 2g, 0.061 mg/LSB
 #define POL_MAG_SENS 1/6842.0f         // FS = 4 gauss
-// #define POL_GYRO_SENS 0.00875f      // FS = 250
-// #define POL_ACC_SENS 0.122/1000.0f  // FS = 4g, 0.122 mg/LSB
-// #define POL_MAG_SENS 1/2281.0f      // FS = 8 gauss
+
+#define IMU_THRESHOLD 0.005f
 
 
 
@@ -128,7 +127,7 @@ vec3_t euler_angles;
 
 // Filter Object:
 CompFilter Pololu_filter(true); // True for enabling the magnetometer
-float dt = 1/1100.0f; // 1kHz sample rate in seconds
+// float dt = 1/1100.0f; // 1.1kHz sample rate in seconds
 
 // Desired Attitude - From the controller:
 attitude_t desired_attitude;
@@ -154,6 +153,7 @@ void GyroMagCalibration();
 void update_controller();
 void IMU_init();
 void mapping_controller(char);
+void resetMicrocontroller();
 void check_arming_state();
 void onConnection(RTComSession &session);
 void convert_Measurment_to_byte();
@@ -201,17 +201,20 @@ void loop() {
     Update_Measurement();
 
     // Update the quaternion:
-    Pololu_filter.UpdateQ(&meas, dt);
+    Pololu_filter.UpdateQ(&meas, DT);
     // Get the Euler angles:
     Pololu_filter.GetEulerRPYdeg(&estimated_attitude, meas.initial_heading);
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
+    
+    //**************** DEBUGGING STARTS HERE */
+    Serial.println(estimated_attitude.yaw);
 
     if (is_armed){
         // Get Actual rates:
-        estimated_rate.roll = meas.gyro.x * rad2deg;
-        estimated_rate.pitch = meas.gyro.y * rad2deg;
-        estimated_rate.yaw = meas.gyro.z * rad2deg;
+        estimated_rate.roll = meas.gyro_LPF.x * rad2deg;
+        estimated_rate.pitch = meas.gyro_LPF.y * rad2deg;
+        estimated_rate.yaw = meas.gyro_LPF.z * rad2deg;
 
         if ((controller_data.aux1 > 1500) && (stab_timer >= STAB_PERIOD)){ // Stabilize mode:
                 // Calculating dt for the PID- in seconds:
@@ -254,15 +257,27 @@ void Update_Measurement(){
     // Read IMU data
     IMU.read();
     mag.read();    
-    meas.acc.x = IMU.a.x * POL_ACC_SENS;
-    meas.acc.y = IMU.a.y * POL_ACC_SENS;
-    meas.acc.z = IMU.a.z * POL_ACC_SENS;
+    meas.acc.x = IMU.a.x * POL_ACC_SENS - meas.acc_bias.x;
+    meas.acc.y = IMU.a.y * POL_ACC_SENS - meas.acc_bias.y;
+    meas.acc.z = IMU.a.z * POL_ACC_SENS - meas.acc_bias.z;
+    if (abs(meas.acc.x) < IMU_THRESHOLD) { meas.acc.x = 0;}
+    if (abs(meas.acc.y) < IMU_THRESHOLD) { meas.acc.y = 0;}
+    if (abs(meas.acc.z) < IMU_THRESHOLD) { meas.acc.z = 0;}
+
     meas.gyro.x = IMU.g.x * POL_GYRO_SENS * deg2rad-meas.gyro_bias.x;
     meas.gyro.y = IMU.g.y * POL_GYRO_SENS * deg2rad-meas.gyro_bias.y;
     meas.gyro.z = IMU.g.z * POL_GYRO_SENS * deg2rad-meas.gyro_bias.z;
+    if (abs(meas.gyro.x) < IMU_THRESHOLD) { meas.gyro.x = 0;}
+    if (abs(meas.gyro.y) < IMU_THRESHOLD) { meas.gyro.y = 0;}
+    if (abs(meas.gyro.z) < IMU_THRESHOLD) { meas.gyro.z = 0;}
+
     meas.mag.x = mag.m.x * POL_MAG_SENS - meas.mag_bias.x;
     meas.mag.y = mag.m.y * POL_MAG_SENS - meas.mag_bias.y;
     meas.mag.z = mag.m.z * POL_MAG_SENS - meas.mag_bias.z;
+    if (abs(meas.mag.x < IMU_THRESHOLD)) { meas.mag.x = 0;}
+    if (abs(meas.mag.y < IMU_THRESHOLD)) { meas.mag.y = 0;}
+    if (abs(meas.mag.z < IMU_THRESHOLD)) { meas.mag.z = 0;}
+
     // meas.baro_data.pressure = baro.readPressureMillibars();
     // meas.baro_data.temperature = baro.readTemperatureC();
     // meas.baro_data.asl = baro.pressureToAltitudeMeters(meas.baro_data.pressure);
@@ -290,12 +305,14 @@ void GyroMagCalibration(){
 
       meas.acc_bias.x += (IMU.a.x * POL_ACC_SENS - meas.acc_bias.x)/num_samples;
       meas.acc_bias.y += (IMU.a.y * POL_ACC_SENS - meas.acc_bias.y)/num_samples;
-      meas.acc_bias.z += (IMU.a.z * POL_ACC_SENS - meas.acc_bias.z)/num_samples;
+    //   meas.acc_bias.z += (IMU.a.z * POL_ACC_SENS - meas.acc_bias.z)/num_samples;
     }
     meas.initial_mag.x = meas.mag_bias.x;
     meas.initial_mag.y = meas.mag_bias.y;
     meas.initial_mag.z = meas.mag_bias.z;
     meas.initial_heading = atan2f(meas.initial_mag.y, meas.initial_mag.x);
+
+    // meas.acc_bias.z += 1.0f; //  Adding back 1g, so the bias will remove only noise around 1g.
     
     Serial.println("Finished Gyro calibration");
     delay(2000);
@@ -311,9 +328,9 @@ void update_controller(){
     controller_data.pitch = elrs.getChannel(2);
     controller_data.yaw = elrs.getChannel(4);
     controller_data.aux1 = elrs.getChannel(5);
-    controller_data.aux1 = elrs.getChannel(6);
-    controller_data.aux1 = elrs.getChannel(7);
-    controller_data.aux1 = elrs.getChannel(8);
+    controller_data.aux2 = elrs.getChannel(6);
+    controller_data.aux3 = elrs.getChannel(7);
+    controller_data.aux4 = elrs.getChannel(8);
     if (controller_data.throttle > 1800){controller_data.throttle = 1800;}
 
 }
@@ -334,13 +351,13 @@ void IMU_init(){
         }
 
     IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
-    IMU.writeReg(LSM6::CTRL2_G, 0b10100000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 125 dps range
-    IMU.writeReg(LSM6::CTRL1_XL, 0b10100000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 2g range
+    IMU.writeReg(LSM6::CTRL2_G, 0b10000100);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 125 dps range
+    IMU.writeReg(LSM6::CTRL1_XL, 0b10000000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 2g range
     // IMU.writeReg(LSM6::CTRL1_XL, 0b10110000); // Set ODR to 3.33 kHz, FS = ±2 g (if unchanged)
     // IMU.writeReg(LSM6::CTRL2_G, 0b10110000);  // Set ODR to 3.33 kHz, FS = 125 dps (if unchanged)
 
     mag.enableDefault();
-    mag.writeReg(LIS3MDL::CTRL_REG1, 0b11100110); // 1 KHz, high performance mode
+    mag.writeReg(LIS3MDL::CTRL_REG1, 0b11111010); // 1 KHz, high performance mode
     mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 4 gauss
 }
 
@@ -357,15 +374,29 @@ void mapping_controller(char state){
     }
 }
 
-void check_arming_state(){
+void resetMicrocontroller() {
+    // Trigger a software reset
+    if (controller_data.aux3 > 1500) {
+        SCB_AIRCR = 0x05FA0004;
+        Serial.println(" reset ");
+    }
+}
+
+void check_arming_state() {
+    /// need to check it 
     // Using aux2 (channel 6) as the arming switch
     // You can change this to any aux channel you prefer
     if (controller_data.aux2 > 1500) {  // Switch is in high position
-        is_armed = true;
+        if (is_armed_amit_flag == true || controller_data.throttle < (MOTOR_START + 100)) {
+            is_armed = true;
+            is_armed_amit_flag == true;
+        }
     } else {  // Switch is in low position
         is_armed = false;
+        is_armed_amit_flag == false;
         motors.Disarm();  // Ensure motors are stopped when disarmed
         Reset_PID();      // Reset PID states when disarmed
+        resetMicrocontroller();
     }
 }
 
