@@ -126,7 +126,7 @@ quat_t q_est;
 vec3_t euler_angles;
 
 // Filter Object:
-CompFilter Pololu_filter(true); // True for enabling the magnetometer
+CompFilter Pololu_filter(false); // True for enabling the magnetometer
 // float dt = 1/1100.0f; // 1.1kHz sample rate in seconds
 
 // Desired Attitude - From the controller:
@@ -145,6 +145,7 @@ float t_PID_r = 0.0f;
 // Timers:
 elapsedMicros motor_timer;
 elapsedMicros stab_timer;
+elapsedMicros imu_timer;
 
 
 /********************************************** Function Prototypes **********************************************/
@@ -201,14 +202,16 @@ void loop() {
     Update_Measurement();
 
     // Update the quaternion:
-    Pololu_filter.UpdateQ(&meas, DT);
+    float actual_dt = (float)imu_timer / 1000000.0f;
+    imu_timer = 0;
+    Pololu_filter.UpdateQ(&meas, actual_dt/2);
     // Get the Euler angles:
     Pololu_filter.GetEulerRPYdeg(&estimated_attitude, meas.initial_heading);
     // Get the quaternion:
     Pololu_filter.GetQuaternion(&q_est);
     
     //**************** DEBUGGING STARTS HERE */
-    Serial.println(estimated_attitude.yaw);
+    Serial.println(estimated_attitude.roll);
 
     if (is_armed){
         // Get Actual rates:
@@ -351,14 +354,20 @@ void IMU_init(){
         }
 
     IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
-    IMU.writeReg(LSM6::CTRL2_G, 0b10000100);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 125 dps range
-    IMU.writeReg(LSM6::CTRL1_XL, 0b10000000);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 2g range
-    // IMU.writeReg(LSM6::CTRL1_XL, 0b10110000); // Set ODR to 3.33 kHz, FS = ±2 g (if unchanged)
-    // IMU.writeReg(LSM6::CTRL2_G, 0b10110000);  // Set ODR to 3.33 kHz, FS = 125 dps (if unchanged)
+    IMU.writeReg(LSM6::CTRL2_G, 0b10000100);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 500 dps range
+    IMU.writeReg(LSM6::CTRL1_XL, 0b10000010);  // 0b1010 for ODR 1.66 kHz, 0b0000 for 2g range with  ODR/10 filter
+     // 3. Enable additional filtering (LPF2) for gyroscope with medium cutoff
+     IMU.writeReg(LSM6::CTRL6_C, 0b00001001); 
 
     mag.enableDefault();
     mag.writeReg(LIS3MDL::CTRL_REG1, 0b11111010); // 1 KHz, high performance mode
     mag.writeReg(LIS3MDL::CTRL_REG2,0x10); // +- 4 gauss
+
+    // Set high-performance mode for accelerometer
+    IMU.writeReg(LSM6::CTRL6_C, 0x00); 
+
+    // Set high-performance mode for gyroscope
+    IMU.writeReg(LSM6::CTRL7_G, 0x00);
 }
 
 void mapping_controller(char state){
@@ -387,13 +396,13 @@ void check_arming_state() {
     // Using aux2 (channel 6) as the arming switch
     // You can change this to any aux channel you prefer
     if (controller_data.aux2 > 1500) {  // Switch is in high position
-        if (is_armed_amit_flag == true || controller_data.throttle < (MOTOR_START + 100)) {
+        if (is_armed == true || controller_data.throttle < (MOTOR_START + 100)) {
             is_armed = true;
-            is_armed_amit_flag == true;
+            is_armed == true;
         }
     } else {  // Switch is in low position
         is_armed = false;
-        is_armed_amit_flag == false;
+        is_armed == false;
         motors.Disarm();  // Ensure motors are stopped when disarmed
         Reset_PID();      // Reset PID states when disarmed
         resetMicrocontroller();

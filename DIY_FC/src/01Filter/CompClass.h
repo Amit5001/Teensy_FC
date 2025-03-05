@@ -16,9 +16,9 @@
 // #define LOW_MOTION 0.2f
 // #define HIGH_MOTION 1.5f
 #define LOW_MOTION 0.15f    // Slightly lower than 0.2f
-#define HIGH_MOTION 1.5f    // Lower than 1.5f to activate high correction sooner
+#define HIGH_MOTION 1.0f    // Lower than 1.5f to activate high correction sooner
 
-#define HIGH_BETA 0.5f // Rely more on accelerometer
+#define HIGH_BETA 0.6f // Rely more on accelerometer
 #define LOW_BETA 0.05f // Rely more on gyroscope
 #define DEFAULT_BETA 0.5f
 
@@ -36,11 +36,6 @@ static const float ALPHA_GYRO_LPF = (2.0f * PI * GYRO_LPF_FREQ * DT / (2.0f * PI
 static const float ALPHA_HPF = (1.0f / (2.0f * PI * GYRO_HPF_FREQ * DT + 1.0f));
 static const float ALPHA_MAG_LPF = (2.0f * PI * MAG_LPF_FREQ * DT / (2.0f * PI * MAG_LPF_FREQ * DT + 1.0f));
 
-// Motor and filter frequencies
-#define MOTOR_FREQ 600.0f
-#define NOTCH_BW 30.0f
-#define ACC_LPF_CUTOFF 10.0f
-#define GYRO_LPF_CUTOFF 50.0f
 
 class CompFilter {
     public:

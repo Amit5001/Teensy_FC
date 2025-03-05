@@ -11,7 +11,7 @@ void CompFilter::UpdateQ(Measurement_t* meas, float dt){
     float _2qwmx, _2qwmy, _2qwmz, _2qxmx, _2q0, _2q1, _2q2, _2q3, _2q0q2, _2q2q3, q0q0, q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3, _2q0q1, _2q0q3;
     float hx, hy, _2bx, _2bz, _4bx, _4bz;
 
-    // Initial Filtering - Not a must nut it helps.
+    // Initial Filtering - Not a must nut it helps. 
     InitialFiltering(meas);
 
 
