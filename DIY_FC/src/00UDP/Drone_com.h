@@ -23,11 +23,9 @@
 #ifndef DRONE_COM_H
 #define DRONE_COM_H
 
-constexpr uint8_t SOCKET_IP_ADDRESS[] = {192, 168, 1, 199};
+constexpr uint8_t SOCKET_IP_ADDRESS[] = {192, 169, 1, 199};
 constexpr uint16_t SOCKET_PORT_NUMBER = 8888;
 const RTComConfig SOCKET_CONFIG(1, 100, 200, 500);
-
-
 
 
 namespace DRON_COM {

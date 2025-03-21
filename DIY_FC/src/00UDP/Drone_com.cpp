@@ -11,7 +11,7 @@ RTComSession* socketSession = nullptr;
 float* imu_data_raw = (float*)calloc(6, sizeof(float));
 uint8_t imu_byte_raw[sizeof(float) * 6];
 float* imu_data_filter = (float*)calloc(12, sizeof(float));
-uint8_t imu_byte_filter[sizeof(float)*12];
+uint8_t imu_byte_filter[sizeof(float) * 12];
 float* mag_data = (float*)calloc(3, sizeof(float));
 uint8_t mag_byte[sizeof(float) * 3];
 float* euler_data = (float*)calloc(3, sizeof(float));
@@ -60,9 +60,9 @@ void convert_Measurment_to_byte(Measurement_t meas,
     imu_data_raw[0] = meas.acc.x;
     imu_data_raw[1] = meas.acc.y;
     imu_data_raw[2] = meas.acc.z;
-    imu_data_raw[3] = meas.gyro.x;
-    imu_data_raw[4] = meas.gyro.y;
-    imu_data_raw[5] = meas.gyro.z;
+    imu_data_raw[3] = meas.gyroDEG.x;
+    imu_data_raw[4] = meas.gyroDEG.y;
+    imu_data_raw[5] = meas.gyroDEG.z;
     memcpy(imu_byte_raw, imu_data_raw, sizeof(imu_byte_raw));
 
     mag_data[0] = meas.mag.x;
@@ -156,7 +156,6 @@ void convert_Measurment_to_byte(Measurement_t meas,
     rc_ch_data[7] = controller_data.aux4;
 
     memcpy(rc_byte, rc_ch_data, sizeof(rc_byte));
-
 }
 
 void emit_data() {
@@ -175,10 +174,10 @@ void emit_data() {
 }
 
 void send_data() {
-    rtcomSocket.process();
+    DRON_COM::rtcomSocket.process();
     if (rtcomSocket.isSessionConnected(socketSession)) {
         DRON_COM::emit_data();
     };
 }
 
-}  // namespace DR
+}  // namespace DRON_COM

@@ -136,10 +136,10 @@ void CompFilter::UpdateQ(Measurement_t* meas, float dt){
 
 
     // Integrate rate of change of quaternion to yield quaternion
-    q.w += qDot1 * dt;
-    q.x += qDot2 * dt;
-    q.y += qDot3 * dt;
-    q.z += qDot4 * dt;
+    q.w += (qDot1 + qDot_prev.w) * dt/2;
+    q.x += (qDot2 + qDot_prev.x) * dt/2;
+    q.y += (qDot3 + qDot_prev.y) * dt/2;
+    q.z += (qDot4 + qDot_prev.z) * dt/2;
 
     // Normalise quaternion in order to get unit length quaternion
     recipNorm = invSqrt(q.w*q.w + q.x*q.x + q.y*q.y + q.z*q.z);
@@ -173,8 +173,8 @@ void CompFilter::GetEulerRPYrad(attitude_s* rpy, float initial_heading){
 
     // Currently returend in radians, can be converted to degrees by multiplying by rad2deg
     rpy->yaw = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z);
-    // rpy->pitch = asinf(gx);
-    rpy->pitch = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z));
+    rpy->pitch = asinf(gx);
+    // rpy->pitch = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z));
     rpy->roll = atan2f(gy, gz);
 }
 
@@ -186,11 +186,8 @@ void CompFilter::GetEulerRPYdeg(attitude_s* rpy, float initial_heading){
     if (gx < -1) gx = -1;
 
     rpy->yaw = atan2f(2*(q.w*q.z + q.x*q.y), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z) * rad2deg;
-    //     if (rpy->z < 0) {
-    //     rpy->z += 360.0f;
-    // }
-    // rpy->pitch = asinf(gx) * rad2deg;
-    rpy->pitch = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z)) * rad2deg;
+    rpy->pitch = asinf(gx) * rad2deg;
+    // rpy->pitch = atan2f(2 * (q.w * q.y - q.x * q.z), 1 - 2 * (q.y * q.y + q.z * q.z)) * rad2deg;
     rpy->roll = atan2f(2 * (q.w * q.x + q.y * q.z), 1 - 2 * (q.x * q.x + q.y * q.y)) * rad2deg;
     // rpy->roll = atan2f(gy, gz) * rad2deg;
 }
@@ -264,20 +261,21 @@ void CompFilter::InitialFiltering(Measurement_t* meas){
     meas->acc_LPF.y = (1 - ALPHA_ACC_LPF) * meas->acc_LPF.y + ALPHA_ACC_LPF * meas->acc.y;
     meas->acc_LPF.z = (1 - ALPHA_ACC_LPF) * meas->acc_LPF.z + ALPHA_ACC_LPF * meas->acc.z;
 
-
+    // Apply High-pass Filter to Gyro - > RAD. Used for the filter
     static vec3_t gyroPrev = {0.0, 0.0, 0.0};
-    meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + meas->gyro.x - gyroPrev.x);
-    meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + meas->gyro.y - gyroPrev.y);
-    meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + meas->gyro.z - gyroPrev.z);
-    gyroPrev.x = meas->gyro.x;
-    gyroPrev.y = meas->gyro.y;
-    gyroPrev.z = meas->gyro.z;
-    // Apply Low-pass Filter to Gyro
-    meas->gyro_LPF.x = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.x + ALPHA_GYRO_LPF * meas->gyro.x;
-    meas->gyro_LPF.y = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.y + ALPHA_GYRO_LPF * meas->gyro.y;
-    meas->gyro_LPF.z = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.z + ALPHA_GYRO_LPF * meas->gyro.z;
+    meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + meas->gyroRAD.x - gyroPrev.x);
+    meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + meas->gyroRAD.y - gyroPrev.y);
+    meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + meas->gyroRAD.z - gyroPrev.z);
+    gyroPrev.x = meas->gyroRAD.x;
+    gyroPrev.y = meas->gyroRAD.y;
+    gyroPrev.z = meas->gyroRAD.z;
+    
+    // Apply Low-pass Filter to Gyro - > DEG. Used for acro
+    meas->gyro_LPF.x = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.x + ALPHA_GYRO_LPF * meas->gyroDEG.x;
+    meas->gyro_LPF.y = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.y + ALPHA_GYRO_LPF * meas->gyroDEG.y;
+    meas->gyro_LPF.z = (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.z + ALPHA_GYRO_LPF * meas->gyroDEG.z;
 
-    if (USE_MAG){
+    if (USE_MAG) {
         // Apply Low-pass Filter to Mag
         meas->mag_LPF.x = (1 - ALPHA_MAG_LPF) * meas->mag_LPF.x + ALPHA_MAG_LPF * meas->mag.x;
         meas->mag_LPF.y = (1 - ALPHA_MAG_LPF) * meas->mag_LPF.y + ALPHA_MAG_LPF * meas->mag.y;

@@ -27,6 +27,12 @@ Description: This file contains the definition of the different types used in th
 
 #include <Arduino.h>
 
+/**** Unit Conversion parameters: ****/
+#define PI 3.14159265358979323846f
+#define rad2deg 180.0f/PI
+#define deg2rad PI/180.0f
+
+
 #define ESC_FREQUENCY 500  // Frequency of the ESCs
 
 // Frequencies to be used with the RATE_DO_EXECUTE_HZ macro. Do NOT use an arbitrary number.
@@ -44,7 +50,7 @@ Description: This file contains the definition of the different types used in th
 #define RATE_SUPERVISOR RATE_25_HZ
 
 static const float SAMPLE_RATE = 833.0f;
-static const float DT = 1.0f/SAMPLE_RATE;
+static const float DT = 1.0f/(SAMPLE_RATE/2);
 
 #define RATE_DO_EXECUTE(RATE_HZ, TICK) ((TICK % (RATE_MAIN_LOOP / RATE_HZ)) == 0)
 
@@ -86,11 +92,12 @@ typedef struct filter_data_s{
     vec3_t mag_filtered;
 } filter_data_t;
 
-typedef struct{
+typedef struct {
     vec3_t acc;
     vec3_t acc_LPF = {0.0, 0.0, 0.0};
     vec3_t acc_bias = {0.0, 0.0, 0.0};
-    vec3_t gyro;
+    vec3_t gyroRAD = {0.0, 0.0, 0.0};
+    vec3_t gyroDEG = {0.0, 0.0, 0.0};
     vec3_t gyro_bias = {0.0, 0.0, 0.0};
     vec3_t gyro_HPF = {0.0, 0.0, 0.0};
     vec3_t gyro_LPF = {0.0, 0.0, 0.0};
@@ -101,7 +108,7 @@ typedef struct{
     float initial_heading = 0.0;
     baro_t baro_data;
     filter_data_t filter_data;  // Added filter data structure
-}Measurement_t;
+} Measurement_t;
 
 typedef struct flowMeasurement_s {
   uint32_t timestamp;

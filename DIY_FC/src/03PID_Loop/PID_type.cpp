@@ -11,8 +11,8 @@ attitude_t angle_err; // Attitude error
 attitude_t rate_err_HPF;
 attitude_t rate_err_LPF;
 attitude_t rate_err_clean;
-attitude_t rate_err_filt = {0.0, 0.0, 0.0};
-attitude_t stab_err_filt = {0.0, 0.0, 0.0};
+attitude_t rate_err = {0.0, 0.0, 0.0};
+attitude_t stab_err = {0.0, 0.0, 0.0};
 
 // attitude_t angle_err_prev; // Previous attitude error
 // attitude_t rate_err_prev; // Previous attitude rate error
@@ -28,14 +28,16 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RpitchPID[3] = nullp
                          float Imax_rate[2] = nullptr, float SrollPID[3] = nullptr, float SpitchPID[3] = nullptr,
                          float SyawPID[3] = nullptr, float Imax_stab[2] = nullptr){    // Rate mode parameters
     
-    // Default parameter values
-    const float defaultRrollPID[3] = {0.1f, 0.01f, 0.01f};
-    const float defaultRpitchPID[3] = {0.1f, 0.01f, 0.01f};
-    const float defaultRyawPID[3] = {0.1f, 0.01f, 0.01f};
+    // Default ACRO mode parameter values
+    const float defaultRrollPID[3] = {0.8f, 0.001f, 0.01f};
+    const float defaultRpitchPID[3] = {1.2f, 0.01f, 0.01f};   
+    const float defaultRyawPID[3] = {2.0f, 0.0f, 0.01f};
     const float defaultImax_rate[2] = {100.0f, 100.0f};
-    const float defaultSrollPID[3] = {0.1f, 0.01f, 0.0f};
-    const float defaultSpitchPID[3] = {0.1f, 0.01f, 0.0f};
-    const float defaultSyawPID[3] = {0.1f, 0.01f, 0.0f};
+
+    // Default STABILIZE mode parameter values
+    const float defaultSrollPID[3] = {7.0f, 0.01f, 0.0f};
+    const float defaultSpitchPID[3] = {7.0f, 0.01f, 0.0f};
+    const float defaultSyawPID[3] = {4.0f, 0.0f, 0.0f};
     const float defaultImax_stab[2] = {100.0f, 100.0f};
 
     // Assign default values if nullptr is passed
@@ -80,36 +82,26 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RpitchPID[3] = nullp
 PID_out_t PID_rate(attitude_t des_rate, attitude_t actual_rate, float DT) { // Actual rate will be in deg/s
     
     // Calculate error
-    rate_err_clean = des_rate - actual_rate; // Probably the best for the Proportional term?
-    rate_err_filt = (1-ALPHA_LPF) * rate_err_filt + (ALPHA_LPF) * rate_err_clean;
+    rate_err = des_rate - actual_rate; // Probably the best for the Proportional term?
 
-
-    // if ((rate_err_filt.roll < 0.1 && rate_err_filt.roll > 0.0 ) || rate_err_filt.roll > -0.1 && rate_err_filt.roll < 0.0){ rate_err_filt.roll = 0.0; };
-    // if ((rate_err_filt.pitch < 0.1 && rate_err_filt.pitch > 0.0 ) || rate_err_filt.pitch > -0.1 && rate_err_filt.pitch < 0.0){ rate_err_filt.pitch = 0.0; };
-    // if ((rate_err_filt.yaw < 0.1 && rate_err_filt.yaw > 0.0 ) || rate_err_filt.yaw > -0.1 && rate_err_filt.yaw < 0.0){ rate_err_filt.yaw = 0.0; };
-    if (rate_err_filt.roll < 0.1 && rate_err_filt.roll > -0.1){ rate_err_filt.roll = 0.0; };
-    if (rate_err_filt.pitch < 0.1 && rate_err_filt.pitch > -0.1){ rate_err_filt.pitch = 0.0; };
-    if (rate_err_filt.yaw < 0.1 && rate_err_filt.yaw > -0.1){ rate_err_filt.yaw = 0.0; };
+    if (abs(rate_err.roll) < PID_THRSHOLD){ rate_err.roll = 0.0; };
+    if (abs(rate_err.pitch) < PID_THRSHOLD){ rate_err.pitch = 0.0; };
+    if (abs(rate_err.yaw) < PID_THRSHOLD){ rate_err.yaw = 0.0; };
 
     // Calculate P term:
-    rate_out.P_term.roll = rate_params.RollP * rate_err_filt.roll;
-    rate_out.P_term.pitch = rate_params.PitchP * rate_err_filt.pitch;
-    rate_out.P_term.yaw = rate_params.YawP * rate_err_filt.yaw;
+    rate_out.P_term.roll = rate_params.RollP * rate_err.roll;
+    rate_out.P_term.pitch = rate_params.PitchP * rate_err.pitch;
+    rate_out.P_term.yaw = rate_params.YawP * rate_err.yaw;
 
     // Calculate I term:
-    rate_out.I_term.roll = rate_out.prev_Iterm.roll + (rate_params.RollI/2) * (rate_err_filt.roll + rate_out.prev_err.roll)*DT;
-    rate_out.I_term.pitch = rate_out.prev_Iterm.pitch + (rate_params.PitchI/2) * (rate_err_filt.pitch + rate_out.prev_err.pitch)*DT;
-    rate_out.I_term.yaw = rate_out.prev_Iterm.yaw + (rate_params.YawI/2) * (rate_err_filt.yaw + rate_out.prev_err.yaw)*DT;
+    rate_out.I_term.roll = rate_out.prev_Iterm.roll + (rate_params.RollI/2) * (rate_err.roll + rate_out.prev_err.roll)*DT;
+    rate_out.I_term.pitch = rate_out.prev_Iterm.pitch + (rate_params.PitchI/2) * (rate_err.pitch + rate_out.prev_err.pitch)*DT;
+    rate_out.I_term.yaw = rate_out.prev_Iterm.yaw + (rate_params.YawI/2) * (rate_err.yaw + rate_out.prev_err.yaw)*DT;
 
     // Calculate D term: Explicitly calculating via numerical differentiation
-    rate_out.D_term.roll = rate_params.RollD * (rate_err_filt.roll - rate_out.prev_err.roll)/DT;
-    rate_out.D_term.pitch = rate_params.PitchD * (rate_err_filt.pitch - rate_out.prev_err.pitch)/DT;
-    rate_out.D_term.yaw = rate_params.YawD * (rate_err_filt.yaw - rate_out.prev_err.yaw)/DT;
-
-    // Calculate D term: Using HPF for differentiation
-    // rate_out.D_term.roll = BETA_HPF * (rate_out.D_term.roll + rate_err_LPF.roll - rate_out.prev_errLPF.roll);
-    // rate_out.D_term.pitch = BETA_HPF * (rate_out.D_term.pitch + rate_err_LPF.pitch - rate_out.prev_errLPF.pitch);
-    // rate_out.D_term.yaw = BETA_HPF * (rate_out.D_term.yaw + rate_err_LPF.yaw - rate_out.prev_errLPF.yaw);
+    rate_out.D_term.roll = rate_params.RollD * (rate_err.roll - rate_out.prev_err.roll)/DT;
+    rate_out.D_term.pitch = rate_params.PitchD * (rate_err.pitch - rate_out.prev_err.pitch)/DT;
+    rate_out.D_term.yaw = rate_params.YawD * (rate_err.yaw - rate_out.prev_err.yaw)/DT;
 
     // Cap the I term
     rate_out.I_term.roll = constrain(rate_out.I_term.roll, -rate_params.Imax_roll, rate_params.Imax_roll);
@@ -117,7 +109,7 @@ PID_out_t PID_rate(attitude_t des_rate, attitude_t actual_rate, float DT) { // A
     rate_out.I_term.yaw = constrain(rate_out.I_term.yaw, -rate_params.Imax_yaw, rate_params.Imax_yaw);
 
     // Time propagation for relevant variables:
-    rate_out.prev_err = rate_err_filt;
+    rate_out.prev_err = rate_err;
     rate_out.prev_Iterm = rate_out.I_term;
 
     // Return the output
@@ -129,7 +121,12 @@ PID_out_t PID_rate(attitude_t des_rate, attitude_t actual_rate, float DT) { // A
 PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     // Calculate error
     angle_err = des_angle - angle;
-    // stab_err_filt = (1-ALPHA_LPF) * stab_err_filt + (ALPHA_LPF) * angle_err;
+
+    if (abs(angle_err.roll) < PID_THRSHOLD){ angle_err.roll = 0.0; };
+    if (abs(angle_err.pitch) < PID_THRSHOLD){ angle_err.pitch = 0.0; };
+    if (abs(angle_err.yaw) < PID_THRSHOLD){ angle_err.yaw = 0.0; };
+
+
     
     // Calculate P term:
     stab_out.P_term.roll = stab_params.RollP * angle_err.roll;
@@ -167,5 +164,5 @@ void Reset_PID(){
     rate_out.prev_Iterm = {0.0, 0.0, 0.0};
     stab_out.prev_err = {0.0, 0.0, 0.0};
     stab_out.prev_Iterm = {0.0, 0.0, 0.0};
-    rate_err_filt = {0.0, 0.0, 0.0};
+    rate_err = {0.0, 0.0, 0.0};
 }

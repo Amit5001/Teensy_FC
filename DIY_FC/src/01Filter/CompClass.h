@@ -20,12 +20,12 @@
 
 #define HIGH_BETA 0.6f // Rely more on accelerometer
 #define LOW_BETA 0.05f // Rely more on gyroscope
-#define DEFAULT_BETA 0.5f
+#define DEFAULT_BETA 0.4f
 
 // Filter Frequencies:
-#define ACC_LPF_FREQ 20.0f   // Increase from 10.0f
+#define ACC_LPF_FREQ 100.0f   // Increase from 10.0f
 #define GYRO_LPF_FREQ 70.0f  // Increase from 40.0f
-#define GYRO_HPF_FREQ 1.0f   // Lower from 2.5f to reduce drift removal aggressiveness
+#define GYRO_HPF_FREQ 0.0f   // Lower from 2.5f to reduce drift removal aggressiveness
 #define MAG_LPF_FREQ 15.0f   // Increase from 10.0f
 
 // Calculate filter coefficients based on cutoff frequencies
@@ -44,6 +44,7 @@ class CompFilter {
 
 
         quat_t q = {0.0, 0.0, 0.0, 1.0};
+        quat_t qDot_prev ={0.0, 0.0, 0.0, 0.0};
         // Params for HPF and LPF:
         vec3_t accFiltered = {0.0, 0.0, 0.0};
         vec3_t gyroFiltered = {0.0, 0.0, 0.0};
