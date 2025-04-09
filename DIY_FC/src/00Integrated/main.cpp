@@ -223,6 +223,9 @@ void Update_Measurement(){
     meas.acc.x = IMU.a.x * POL_ACC_SENS - meas.acc_bias.x;
     meas.acc.y = IMU.a.y * POL_ACC_SENS - meas.acc_bias.y;
     meas.acc.z = IMU.a.z * POL_ACC_SENS - meas.acc_bias.z;
+    // meas.acc.x = IMU.a.x * POL_ACC_SENS;
+    // meas.acc.y = IMU.a.y * POL_ACC_SENS;
+    // meas.acc.z = IMU.a.z * POL_ACC_SENS;
     if (abs(meas.acc.x) < IMU_THRESHOLD) { meas.acc.x = 0;}
     if (abs(meas.acc.y) < IMU_THRESHOLD) { meas.acc.y = 0;}
     if (abs(meas.acc.z) < IMU_THRESHOLD) { meas.acc.z = 0;}

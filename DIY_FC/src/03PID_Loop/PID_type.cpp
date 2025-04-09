@@ -126,7 +126,24 @@ PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     if (abs(angle_err.pitch) < PID_THRSHOLD){ angle_err.pitch = 0.0; };
     if (abs(angle_err.yaw) < PID_THRSHOLD){ angle_err.yaw = 0.0; };
 
-
+    if(abs(des_angle.roll) < SMALL_ANGLE && abs(angle_err.roll) < SMALL_ANGLE){
+        stab_out.P_term.roll = STAB_P_ZERO * stab_params.RollP * angle_err.roll;
+    }
+    else {
+        stab_out.P_term.roll = stab_params.RollP * angle_err.roll;
+    }
+    if(abs(des_angle.pitch) < SMALL_ANGLE && abs(angle_err.pitch) < SMALL_ANGLE){
+        stab_out.P_term.pitch = STAB_P_ZERO * stab_params.PitchP * angle_err.pitch;
+    }
+    else {
+        stab_out.P_term.pitch = stab_params.PitchP * angle_err.pitch;
+    }
+    if(abs(des_angle.yaw) < SMALL_ANGLE && abs(angle_err.yaw) < SMALL_ANGLE){
+        stab_out.P_term.yaw = STAB_P_ZERO * stab_params.YawP * angle_err.yaw;
+    }
+    else {
+        stab_out.P_term.yaw = stab_params.YawP * angle_err.yaw;
+    }
     
     // Calculate P term:
     stab_out.P_term.roll = stab_params.RollP * angle_err.roll;
