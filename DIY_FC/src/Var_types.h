@@ -224,6 +224,13 @@ typedef struct PID_Params_s{
     float YawP;
     float YawI;
     float YawD;
+    // Those alphas are used for HPF to calculate the derivative term:
+    float Alpha_roll;
+    float Alpha_pitch;
+    float Alpha_yaw;
+    float RollD_tau;
+    float PitchD_tau;
+    float YawD_tau;
 
     float Imax_roll;
     float Imax_pitch;

@@ -2,6 +2,7 @@
 
 // Filter Library:
 #include <01Filter/CompClass.h>
+#include <04EKF/EkfClass.h>
 
 // PID Controller library:
 #include <03PID_Loop/PID_type.h>
@@ -42,7 +43,9 @@
 #define CONTROLLER_MIN 988
 #define CONTROLLER_MAX 2012
 #define CONTROLLER_MID 1500
-
+// DeadBand for the controller throttle:
+#define CONTROLL_THR_MAX 1520
+#define CONTROLL_THR_MIN 1480
 
 /**** IMU Data parameters:  ****/
 #define POL_GYRO_SENS 17.5/1000.0f    // FS = 500
@@ -79,7 +82,9 @@ Measurement_t meas;
 quat_t q_est;
 
 // Filter Object:
-CompFilter Pololu_filter(false); // True for enabling the magnetometer
+CompFilter Comp_filter(false); // True for enabling the magnetometer
+EKF Ekf_filter(&meas, DT);
+int filter_type = 0; // 0 for Complementary, 1 for Kalman
 
 // Desired Attitude - From the controller:
 attitude_t desired_attitude;
@@ -97,11 +102,13 @@ double actual_dt = 0.0f;
 const unsigned long PWM_PERIOD_1 = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz. Recieving PWM signal every 2ms -- NOT REALLY NECESSARY, we have the same variable at motors.h
 const unsigned long STAB_PERIOD = 1000000 / (ESC_FREQUENCY/2); // 300 Hz period in microseconds
 const unsigned long IMU_PERIOD = 1000000 / SAMPLE_RATE;
+const unsigned long DATA_PERIOD = 1000000 / 50; // 50 Hz period in microseconds
 
 // Timers:
 elapsedMicros motor_timer;
 elapsedMicros stab_timer;
 elapsedMicros imu_timer;
+elapsedMicros Data_timer;
 
 
 /********************************************** Function Prototypes **********************************************/
@@ -112,11 +119,12 @@ void IMU_init();
 void mapping_controller(char);
 void resetMicrocontroller();
 void check_arming_state();
-void onConnection(RTComSession &session);
-void convert_Measurment_to_byte();
-void emit_data();
+void controller_trheshold();
+void compclass_function();
+void channel_estimated();
+void filter_method();
 
-/********************************************** Main Code **********************************************/
+/*********************************************** Main Code ***********************************************/
 
 void setup() {
     // Initialize Serial Monitor:
@@ -160,9 +168,9 @@ void loop() {
         Update_Measurement();
 
         // Getting filtered data:
-        Pololu_filter.UpdateQ(&meas, actual_dt/2);
-        Pololu_filter.GetEulerRPYdeg(&estimated_attitude, meas.initial_heading);
-        Pololu_filter.GetQuaternion(&q_est);
+        Comp_filter.UpdateQ(&meas, actual_dt/2);
+        Comp_filter.GetEulerRPYdeg(&estimated_attitude, meas.initial_heading);
+        Comp_filter.GetQuaternion(&q_est);
 
         Serial.println(estimated_attitude.roll);
 
@@ -200,14 +208,19 @@ void loop() {
             //Getting the motors struct to send data back:
             motor_pwm = motors.Get_motor();
         }
-        // Sending new UDP Packet:
-        DRON_COM::convert_Measurment_to_byte(meas,
-                                            q_est, desired_attitude,
-                                            motor_pwm, desired_rate,
-                                            estimated_attitude, estimated_rate,
-                                            PID_stab_out, PID_rate_out, controller_data);
 
-        DRON_COM::send_data();
+        // Sending new UDP Packet:
+        if (Data_timer >= DATA_PERIOD){
+            DRON_COM::convert_Measurment_to_byte(meas,
+                                                q_est, desired_attitude,
+                                                motor_pwm, desired_rate,
+                                                estimated_attitude, estimated_rate,
+                                                PID_stab_out, PID_rate_out, controller_data);
+
+            DRON_COM::send_data();
+            Data_timer = 0;
+        }
+        
         imu_timer = 0;
     }
 }
@@ -300,6 +313,12 @@ void update_controller(){
 
 }
 
+void controller_trheshold(){
+    if ((controller_data.roll <= CONTROLL_THR_MAX) && (controller_data.roll >= CONTROLL_THR_MIN)){ controller_data.roll = 1500;}
+    if ((controller_data.pitch <= CONTROLL_THR_MAX) && (controller_data.pitch >= CONTROLL_THR_MIN)){ controller_data.pitch = 1500;}
+    if ((controller_data.yaw <= CONTROLL_THR_MAX) && (controller_data.yaw >= CONTROLL_THR_MIN)){ controller_data.yaw = 1500;}
+}
+
 void IMU_init(){
         // Seting pins 24 and 25 to be used as I2C
     Wire.begin();
@@ -316,8 +335,9 @@ void IMU_init(){
         }
 
     IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
-    IMU.writeReg(LSM6::CTRL2_G, 0b01110110);  // 0b1010 for ODR 833 Hz, 0b0000 for 500 dps range with filter of odr/10 (last 2 bits 10) -- We can change to 250 dps if our rate is up to 200 
-    IMU.writeReg(LSM6::CTRL1_XL, 0b01110010);  // 0b1010 for ODR 833 Hz, 0b0000 for 2g range with  ODR/10 filter
+    // These configurations are based on tables 44,45,47,48 in the datasheet https://www.pololu.com/file/0J1899/lsm6dso.pdf
+    IMU.writeReg(LSM6::CTRL2_G, 0b01110000);  // 0b1010 for ODR 833 Hz, 0b0000 for 250 dps range. No internal filter
+    IMU.writeReg(LSM6::CTRL1_XL, 0b01110000);  // 0b1010 for ODR 833 Hz, 0b0000 for 2g range. No internal filter.
 
     mag.enableDefault();
     mag.writeReg(LIS3MDL::CTRL_REG1, 0b11111010); // 1 KHz, high performance mode
@@ -360,5 +380,35 @@ void check_arming_state() {
         motors.Disarm();  // Ensure motors are stopped when disarmed
         Reset_PID();      // Reset PID states when disarmed
         resetMicrocontroller();
+    }
+}
+
+
+/********* Functions for filter choosing *********/
+void compclass_function() {
+    Comp_filter.UpdateQ(&meas, actual_dt / 2);
+    Comp_filter.GetEulerRPYdeg(&estimated_attitude, meas.initial_heading);
+    Comp_filter.GetQuaternion(&q_est);
+}
+
+void channel_estimated() {
+    if (controller_data.aux4 > 1700) {
+        filter_type = 0;
+        // Serial.println("ekf");
+    } else if (controller_data.aux4 < 1100) {
+        filter_type = 1;
+        // Serial.println("comclass");
+    }
+}
+
+void filter_method() {
+    channel_estimated();
+    switch (filter_type) {
+        case 0:  // compclass
+            return compclass_function();
+        case 1:  // ekkf
+            return Ekf_filter.run_kalman(&estimated_attitude, &q_est);
+        default:
+            return Ekf_filter.run_kalman(&estimated_attitude, &q_est);
     }
 }

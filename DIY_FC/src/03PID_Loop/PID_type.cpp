@@ -29,14 +29,13 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RpitchPID[3] = nullp
                          float SyawPID[3] = nullptr, float Imax_stab[2] = nullptr){    // Rate mode parameters
     
     // Default ACRO mode parameter values
-    const float defaultRrollPID[3] = {0.8f, 0.001f, 0.01f};
-    const float defaultRpitchPID[3] = {1.2f, 0.01f, 0.01f};   
-    const float defaultRyawPID[3] = {2.0f, 0.0f, 0.01f};
+    const float defaultRrollPID[3] = {0.9f, 0.00f, 0.015f};
+    const float defaultRpitchPID[3] = {1.3f, 0.0f, 0.015f};   
+    const float defaultRyawPID[3] = {2.0f, 0.0f, 0.005f};
     const float defaultImax_rate[2] = {100.0f, 100.0f};
-
     // Default STABILIZE mode parameter values
-    const float defaultSrollPID[3] = {7.0f, 0.01f, 0.0f};
-    const float defaultSpitchPID[3] = {7.0f, 0.01f, 0.0f};
+    const float defaultSrollPID[3] = {10.0f, 0.01f, 0.0f};
+    const float defaultSpitchPID[3] = {9.0f, 0.01f, 0.0f};
     const float defaultSyawPID[3] = {4.0f, 0.0f, 0.0f};
     const float defaultImax_stab[2] = {100.0f, 100.0f};
 
@@ -63,6 +62,16 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RpitchPID[3] = nullp
     rate_params.Imax_roll = Imax_rate[0];
     rate_params.Imax_pitch = rate_params.Imax_roll;
     rate_params.Imax_yaw = Imax_rate[1];
+    // Alphas for the derivative term:
+        // Larger tau means slower response, more filtering. smaller tau means faster response, less filtering.
+    float cutoff_freq = 10.0f; // 10Hz
+    rate_params.RollD_tau = 1/(2*PI*cutoff_freq); // 0.1s
+    rate_params.PitchD_tau = 1/(2*PI*cutoff_freq);
+    rate_params.YawD_tau = 1/(2*PI*cutoff_freq);
+    rate_params.Alpha_roll = DT / (DT + rate_params.RollD_tau);
+    rate_params.Alpha_pitch = DT / (DT + rate_params.PitchD_tau);
+    rate_params.Alpha_yaw = DT / (DT + rate_params.YawD_tau);
+
 
     // Stabilize mode parameters
     stab_params.RollP = SrollPID[0];
@@ -84,10 +93,6 @@ PID_out_t PID_rate(attitude_t des_rate, attitude_t actual_rate, float DT) { // A
     // Calculate error
     rate_err = des_rate - actual_rate; // Probably the best for the Proportional term?
 
-    if (abs(rate_err.roll) < PID_THRSHOLD){ rate_err.roll = 0.0; };
-    if (abs(rate_err.pitch) < PID_THRSHOLD){ rate_err.pitch = 0.0; };
-    if (abs(rate_err.yaw) < PID_THRSHOLD){ rate_err.yaw = 0.0; };
-
     // Calculate P term:
     rate_out.P_term.roll = rate_params.RollP * rate_err.roll;
     rate_out.P_term.pitch = rate_params.PitchP * rate_err.pitch;
@@ -102,6 +107,11 @@ PID_out_t PID_rate(attitude_t des_rate, attitude_t actual_rate, float DT) { // A
     rate_out.D_term.roll = rate_params.RollD * (rate_err.roll - rate_out.prev_err.roll)/DT;
     rate_out.D_term.pitch = rate_params.PitchD * (rate_err.pitch - rate_out.prev_err.pitch)/DT;
     rate_out.D_term.yaw = rate_params.YawD * (rate_err.yaw - rate_out.prev_err.yaw)/DT;
+
+    // Apply HPF to the derivative term
+    // rate_out.D_term.roll = rate_params.RollD * rate_params.Alpha_roll * (rate_err.roll - rate_out.prev_err.roll + rate_out.D_term.roll);
+    // rate_out.D_term.pitch = rate_params.PitchD * rate_params.Alpha_pitch * (rate_err.pitch - rate_out.prev_err.pitch + rate_out.D_term.pitch);
+    // rate_out.D_term.yaw = rate_params.YawD * rate_params.Alpha_yaw * (rate_err.yaw - rate_out.prev_err.yaw + rate_out.D_term.yaw);
 
     // Cap the I term
     rate_out.I_term.roll = constrain(rate_out.I_term.roll, -rate_params.Imax_roll, rate_params.Imax_roll);
