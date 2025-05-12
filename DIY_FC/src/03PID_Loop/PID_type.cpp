@@ -86,6 +86,15 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RpitchPID[3] = nullp
     stab_params.Imax_roll = Imax_stab[0];
     stab_params.Imax_pitch = stab_params.Imax_roll;
     stab_params.Imax_yaw = Imax_stab[1];
+    // Alphas for the derivative term:
+        // Larger tau means slower response, more filtering. smaller tau means faster response, less filtering.
+    stab_params.RollD_tau = 1/(2*PI*cutoff_freq); // 0.1s
+    stab_params.PitchD_tau = 1/(2*PI*cutoff_freq);
+    stab_params.YawD_tau = 1/(2*PI*cutoff_freq);
+    stab_params.Alpha_roll = DT / (DT + stab_params.RollD_tau);
+    stab_params.Alpha_pitch = DT / (DT + stab_params.PitchD_tau);
+    stab_params.Alpha_yaw = DT / (DT + stab_params.YawD_tau);
+    // Set the Imax values for the rate controller
 }
 
 PID_out_t PID_rate(attitude_t des_rate, attitude_t actual_rate, float DT) { // Actual rate will be in deg/s
@@ -169,6 +178,12 @@ PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     stab_out.D_term.roll = stab_params.RollD * (angle_err.roll - stab_out.prev_err.roll)/DT;
     stab_out.D_term.pitch = stab_params.PitchD * (angle_err.pitch - stab_out.prev_err.pitch)/DT;
     stab_out.D_term.yaw = stab_params.YawD * (angle_err.yaw - stab_out.prev_err.yaw)/DT;
+
+    // // Apply HPF to the derivative term
+    // stab_out.D_term.roll = stab_params.RollD * stab_params.Alpha_roll * (angle_err.roll - stab_out.prev_err.roll + stab_out.D_term.roll);
+    // stab_out.D_term.pitch = stab_params.PitchD * stab_params.Alpha_pitch * (angle_err.pitch - stab_out.prev_err.pitch + stab_out.D_term.pitch);
+    // stab_out.D_term.yaw = stab_params.YawD * stab_params.Alpha_yaw * (angle_err.yaw - stab_out.prev_err.yaw + stab_out.D_term.yaw);
+
 
     // Cap the I term
     stab_out.I_term.roll = constrain(stab_out.I_term.roll, -stab_params.Imax_roll, stab_params.Imax_roll);
