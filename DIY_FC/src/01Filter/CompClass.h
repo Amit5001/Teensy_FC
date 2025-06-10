@@ -20,21 +20,6 @@
 #define DEFAULT_BETA 0.4f
 #define QUAT_THRESH 0.05f
 
-// Filter Frequencies:
-#define ACC_LPF_FREQ 25.0f   //Increase from 10.0f
-#define GYRO_LPF_FREQ 25.0f  // Decreased from 40.0f
-#define GYRO_HPF_FREQ 0.5f   // Lower from 2.5f to reduce drift removal aggressiveness
-#define MAG_LPF_FREQ 15.0f   // Increase from 10.0f
-
-
-// Calculate filter coefficients based on cutoff frequencies
-// static const float SAMPLE_RATE = 1100.0f;
-// static const float DT = 1.0f/SAMPLE_RATE;
-static const float ALPHA_ACC_LPF = (2.0f * PI * ACC_LPF_FREQ * DT / (2.0f * PI * ACC_LPF_FREQ * DT + 1.0f));
-static const float ALPHA_GYRO_LPF = (2.0f * PI * GYRO_LPF_FREQ * DT / (2.0f * PI * GYRO_LPF_FREQ * DT + 1.0f));
-static const float ALPHA_HPF = (1.0f / (2.0f * PI * GYRO_HPF_FREQ * DT + 1.0f));
-static const float ALPHA_MAG_LPF = (2.0f * PI * MAG_LPF_FREQ * DT / (2.0f * PI * MAG_LPF_FREQ * DT + 1.0f));
-
 
 class CompFilter {
     public:
@@ -48,6 +33,7 @@ class CompFilter {
         vec3_t accFiltered = {0.0, 0.0, 0.0};
         vec3_t gyroFiltered = {0.0, 0.0, 0.0};
         vec3_t magFiltered = {0.0, 0.0, 0.0};
+        vec3_t gyroPrev = {0.0, 0.0, 0.0};
         float gyroNorm = 0.0;
         float drift = 0.0;
         float driftRate = 0.005;
@@ -55,7 +41,6 @@ class CompFilter {
 
 
         void UpdateQ(Measurement_t* , float );
-        void InitialFiltering(Measurement_t* );
         float calculateDynamicBeta(Measurement_t );
         float invSqrt(float x);
         void GetQuaternion(quat_t* q_);

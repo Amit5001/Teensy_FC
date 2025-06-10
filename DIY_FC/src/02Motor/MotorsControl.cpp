@@ -6,7 +6,7 @@
 // Initialization of the motors
 void Motors::Motors_init(){
     // Set the PWM resolution for the ESCs
-    analogWriteResolution(12);
+    analogWriteResolution(PWM_RESOLUTION);
 
     // Setting the motor pins as output
     pinMode(Motor_struct.M1_pin, OUTPUT);

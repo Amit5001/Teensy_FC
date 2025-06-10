@@ -2,6 +2,7 @@
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
         "*.tcc": "cpp",
-        "lu": "cpp"
+        "lu": "cpp",
+        "type_traits": "cpp"
     }
 }

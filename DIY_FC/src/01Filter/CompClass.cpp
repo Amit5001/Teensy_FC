@@ -11,15 +11,18 @@ void CompFilter::UpdateQ(Measurement_t* meas, float dt){
     float _2qwmx, _2qwmy, _2qwmz, _2qxmx, _2q0, _2q1, _2q2, _2q3, _2q0q2, _2q2q3, q0q0, q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3, _2q0q1, _2q0q3;
     float hx, hy, _2bx, _2bz, _4bx, _4bz;
 
-    // Initial Filtering - Not a must nut it helps. 
-    InitialFiltering(meas);
+
+    vec3_t gyro_lpf_rad;
+    gyro_lpf_rad.x = meas->gyro_LPF.x * deg2rad;
+    gyro_lpf_rad.y = meas->gyro_LPF.y * deg2rad;
+    gyro_lpf_rad.z = meas->gyro_LPF.z * deg2rad;
 
 
     // Model based time propagation
-    qDot1 = 0.5f * (-q.x * meas->gyro_HPF.x - q.y * meas->gyro_HPF.y - q.z * meas->gyro_HPF.z);
-    qDot2 = 0.5f * (q.w * meas->gyro_HPF.x + q.y * meas->gyro_HPF.z - q.z * meas->gyro_HPF.y);
-    qDot3 = 0.5f * (q.w * meas->gyro_HPF.y - q.x * meas->gyro_HPF.z + q.z * meas->gyro_HPF.x);
-    qDot4 = 0.5f * (q.w * meas->gyro_HPF.z + q.x * meas->gyro_HPF.y - q.y * meas->gyro_HPF.x);
+    qDot1 = 0.5f * (-q.x * gyro_lpf_rad.x - q.y * gyro_lpf_rad.y - q.z * gyro_lpf_rad.z);
+    qDot2 = 0.5f * (q.w * gyro_lpf_rad.x + q.y * gyro_lpf_rad.z - q.z * gyro_lpf_rad.y);
+    qDot3 = 0.5f * (q.w * gyro_lpf_rad.y - q.x * gyro_lpf_rad.z + q.z * gyro_lpf_rad.x);
+    qDot4 = 0.5f * (q.w * gyro_lpf_rad.z + q.x * gyro_lpf_rad.y - q.y * gyro_lpf_rad.x);
     
     float BETA = calculateDynamicBeta(*meas);
     //float BETA = DEFAULT_BETA;
@@ -197,9 +200,11 @@ void CompFilter::GetEulerRPYdeg(attitude_s* rpy, float initial_heading){
 float CompFilter::invSqrt(float x) {
     float halfx = 0.5f * x;
     float y = x;
-    long i = *(long*)&y;
+    long i;
+    static_assert(sizeof(float) == sizeof(long), "float and long must be the same size");
+    memcpy(&i, &y, sizeof(float));
     i = 0x5f3759df - (i >> 1);
-    y = *(float*)&i;
+    memcpy(&y, &i, sizeof(float));
     y = y * (1.5f - (halfx * y * y));
     return y;
 }
@@ -234,35 +239,4 @@ float CompFilter::calculateDynamicBeta(Measurement_t meas) {
         return DEFAULT_BETA;
     }
 
-}
-void CompFilter::InitialFiltering(Measurement_t* meas) {
-    // meas->acc_LPF.x = (1 - ALPHA_ACC_LPF) * meas->acc.x + ALPHA_ACC_LPF * meas->acc_LPF.x;
-    // meas->acc_LPF.y = (1 - ALPHA_ACC_LPF) * meas->acc.y + ALPHA_ACC_LPF * meas->acc_LPF.y;
-    // meas->acc_LPF.z = (1 - ALPHA_ACC_LPF) * meas->acc.z + ALPHA_ACC_LPF * meas->acc_LPF.z;
-
-    meas->acc_LPF.x = ALPHA_ACC_LPF * meas->acc.x + (1 - ALPHA_ACC_LPF) * meas->acc_LPF.x;
-    meas->acc_LPF.y = ALPHA_ACC_LPF * meas->acc.y + (1 - ALPHA_ACC_LPF) * meas->acc_LPF.y;
-    meas->acc_LPF.z = ALPHA_ACC_LPF * meas->acc.z + (1 - ALPHA_ACC_LPF) * meas->acc_LPF.z;
-
-    // Apply High-pass Filter to Gyro - > RAD. Used for the filter
-
-    meas->gyro_HPF.x = ALPHA_HPF * (meas->gyro_HPF.x + meas->gyroRAD.x - gyroPrev.x);
-    meas->gyro_HPF.y = ALPHA_HPF * (meas->gyro_HPF.y + meas->gyroRAD.y - gyroPrev.y);
-    meas->gyro_HPF.z = ALPHA_HPF * (meas->gyro_HPF.z + meas->gyroRAD.z - gyroPrev.z);
-
-    gyroPrev.x = meas->gyroRAD.x;
-    gyroPrev.y = meas->gyroRAD.y;
-    gyroPrev.z = meas->gyroRAD.z;
-
-    // Apply Low-pass Filter to Gyro - > DEG. Used for acro
-    meas->gyro_LPF.x = ALPHA_GYRO_LPF * meas->gyroDEG.x + (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.x;
-    meas->gyro_LPF.y = ALPHA_GYRO_LPF * meas->gyroDEG.y + (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.y;
-    meas->gyro_LPF.z = ALPHA_GYRO_LPF * meas->gyroDEG.z + (1 - ALPHA_GYRO_LPF) * meas->gyro_LPF.z;
-
-    if (USE_MAG) {
-        // Apply Low-pass Filter to Mag
-        meas->mag_LPF.x = (1 - ALPHA_MAG_LPF) * meas->mag.x + ALPHA_MAG_LPF * meas->mag_LPF.x;
-        meas->mag_LPF.y = (1 - ALPHA_MAG_LPF) * meas->mag.y + ALPHA_MAG_LPF * meas->mag_LPF.y;
-        meas->mag_LPF.z = (1 - ALPHA_MAG_LPF) * meas->mag.z + ALPHA_MAG_LPF * meas->mag_LPF.z;
-    }
 }

@@ -1,8 +1,8 @@
-#include <Arduino.h>
-
 // Filter Library:
 #include <01Filter/CompClass.h>
-#include <04EKF/EkfClass.h>
+#include <01Filter/EkfClass.h>
+#include <01Filter/Madgwick.h>
+#include <01Filter/STD_Filter.h>
 
 // PID Controller library:
 #include <03PID_Loop/PID_type.h>
@@ -34,15 +34,14 @@
 #define MOTOR2_PIN 3
 #define MOTOR3_PIN 4
 #define MOTOR4_PIN 5
-// #define ESC_FREQUENCY 500
-
 
 /**** Max Angle and max rate ****/
 #define MAX_ANGLE 15.0f
-#define MAX_RATE 500.0f
+#define MAX_RATE 200.0f
 #define CONTROLLER_MIN 988
 #define CONTROLLER_MAX 2012
 #define CONTROLLER_MID 1500
+
 // DeadBand for the controller throttle:
 #define CONTROLL_THR_MAX 1520
 #define CONTROLL_THR_MIN 1480
@@ -51,8 +50,7 @@
 #define POL_GYRO_SENS 17.5/1000.0f    // FS = 500
 #define POL_ACC_SENS 0.061/1000.0f     // FS = 2g, 0.061 mg/LSB
 #define POL_MAG_SENS 1/6842.0f         // FS = 4 gauss
-#define IMU_THRESHOLD 0.005f
-
+#define IMU_THRESHOLD 0.05f            // Threshold for the IMU data to be considered valid
 
 
 #define elrsSerial Serial1  // Use Serial1 for the CRSF communication
@@ -81,11 +79,6 @@ LPS baro;
 Measurement_t meas;
 quat_t q_est;
 
-// Filter Object:
-CompFilter Comp_filter(false); // True for enabling the magnetometer
-EKF Ekf_filter(&meas, DT);
-int filter_type = 0; // 0 for Complementary, 1 for Kalman
-
 // Desired Attitude - From the controller:
 attitude_t desired_attitude;
 attitude_t motor_input; // Currently not in use. replaced by PID_rate_out.PID_ret
@@ -97,6 +90,13 @@ PID_out_t PID_rate_out;
 float t_PID_s = 0.0f;
 float t_PID_r = 0.0f;
 double actual_dt = 0.0f;
+
+// Filters:
+CompFilter Comp_filter(false); // True for enabling the magnetometer
+EKF Ekf_filter(&meas, DT);
+Madgwick madgwick_filter(&meas, &estimated_attitude, &q_est, SAMPLE_RATE, 0.9f); // Beta value is set to 0.1
+STD_Filter std_filter(&meas, DT); // Standard filter for the IMU data
+int filter_type = 0; // 0 for Complementary, 1 for Kalman
 
 // Timers periods:
 const unsigned long PWM_PERIOD_1 = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz. Recieving PWM signal every 2ms -- NOT REALLY NECESSARY, we have the same variable at motors.h
@@ -246,9 +246,6 @@ void Update_Measurement(){
     meas.gyroDEG.x = IMU.g.x * POL_GYRO_SENS - meas.gyro_bias.x;
     meas.gyroDEG.y = IMU.g.y * POL_GYRO_SENS - meas.gyro_bias.y;
     meas.gyroDEG.z = IMU.g.z * POL_GYRO_SENS - meas.gyro_bias.z;
-    if (abs(meas.gyroDEG.x) < IMU_THRESHOLD) { meas.gyroDEG.x = 0;}
-    if (abs(meas.gyroDEG.y) < IMU_THRESHOLD) { meas.gyroDEG.y = 0;}
-    if (abs(meas.gyroDEG.z) < IMU_THRESHOLD) { meas.gyroDEG.z = 0;}
     meas.gyroRAD.x = meas.gyroDEG.x * deg2rad;
     meas.gyroRAD.y = meas.gyroDEG.y * deg2rad;
     meas.gyroRAD.z = meas.gyroDEG.z * deg2rad;

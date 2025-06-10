@@ -1,4 +1,4 @@
-#include "RTCom/RTCom.h"
+#include "RTCom.h"
 #include "Var_types.h"
 #include <Arduino.h>
 

@@ -1,4 +1,4 @@
-# Complimentary Filter for Attitude Estimation
+# Complimentary Filter for Attitude Estimation - CompClass
 
 This filter is first layer of filtering. using Gyro, Accelerometer and Magnetometer measurements in order to estimate the attitude of the drone.
 The filter is based on:
@@ -8,3 +8,13 @@ The filter is based on:
 3. https://github.com/arduino-libraries/MadgwickAHRS/blob/master/src/MadgwickAHRS.cpp
 
 The filter changes dynamically the beta value, depends on the magnitude of the gyro measurements.
+
+
+
+# Kalman Filter for Attitude Estimation - EkfClass
+
+This filter does the same thing as CompClass but in a different approach
+
+# Madgwick Filter for Attitude Estimation - Madgwock
+
+This filter does the same as the above, pretty much the same way as CompClass

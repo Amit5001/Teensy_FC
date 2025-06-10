@@ -25,34 +25,20 @@ Description: This file contains the definition of the different types used in th
 #ifndef VAR_TYPES_H
 #define VAR_TYPES_H
 
-#include <Arduino.h>
 
-/**** Unit Conversion parameters: ****/
-#define PI 3.14159265358979323846f
-#define rad2deg 180.0f/PI
-#define deg2rad PI/180.0f
-
-
+#include <stdint.h>
 #define ESC_FREQUENCY 500  // Frequency of the ESCs
 
-// Frequencies to be used with the RATE_DO_EXECUTE_HZ macro. Do NOT use an arbitrary number.
-#define RATE_1000_HZ 1000
-#define RATE_500_HZ 500
-#define RATE_250_HZ 250
-#define RATE_100_HZ 100
-#define RATE_50_HZ 50
-#define RATE_25_HZ 25
-
-#define RATE_MAIN_LOOP RATE_1000_HZ
-#define ATTITUDE_RATE RATE_500_HZ
-#define POSITION_RATE RATE_100_HZ
-#define RATE_HL_COMMANDER RATE_100_HZ
-#define RATE_SUPERVISOR RATE_25_HZ
-
 static const float SAMPLE_RATE = 833.0f;
-static const float DT = 1.0f/(SAMPLE_RATE/2);
+static const float DT = 1.0f / SAMPLE_RATE;
 
-#define RATE_DO_EXECUTE(RATE_HZ, TICK) ((TICK % (RATE_MAIN_LOOP / RATE_HZ)) == 0)
+// Frequencies to be used with the RATE_DO_EXECUTE_HZ macro. Do NOT use an arbitrary number.
+
+#ifndef PI
+#define PI 3.14159265358979323846f
+#endif
+#define deg2rad PI / 180.0f
+#define rad2deg 180.0f / PI
 
 typedef struct{
     float x;
@@ -74,30 +60,12 @@ typedef struct baro_s {
   float asl;                // m (ASL = altitude above sea level)
 } baro_t;
 
-// Notch filter data structure
-typedef struct notch_filter_s{
-    float coeffs_a[3];  // IIR coefficients
-    float coeffs_b[3];  // FIR coefficients
-    float inputs[3];    // Input history
-    float outputs[3];   // Output history
-} notch_filter_t;
-
-// Sensor filtering data structure
-typedef struct filter_data_s{
-    notch_filter_t acc_x_notch;
-    notch_filter_t acc_y_notch;
-    notch_filter_t acc_z_notch;
-    vec3_t acc_filtered;
-    vec3_t gyro_filtered;
-    vec3_t mag_filtered;
-} filter_data_t;
-
 typedef struct {
     vec3_t acc;
     vec3_t acc_LPF = {0.0, 0.0, 0.0};
     vec3_t acc_bias = {0.0, 0.0, 0.0};
-    vec3_t gyroRAD = {0.0, 0.0, 0.0};
-    vec3_t gyroDEG = {0.0, 0.0, 0.0};
+    vec3_t gyroRAD;
+    vec3_t gyroDEG;
     vec3_t gyro_bias = {0.0, 0.0, 0.0};
     vec3_t gyro_HPF = {0.0, 0.0, 0.0};
     vec3_t gyro_LPF = {0.0, 0.0, 0.0};
@@ -107,36 +75,7 @@ typedef struct {
     vec3_t initial_mag = {0.0, 0.0, 0.0};
     float initial_heading = 0.0;
     baro_t baro_data;
-    filter_data_t filter_data;  // Added filter data structure
 } Measurement_t;
-
-typedef struct flowMeasurement_s {
-  uint32_t timestamp;
-  union {
-    struct {
-      float dpixelx;  // Accumulated pixel count x
-      float dpixely;  // Accumulated pixel count y
-    };
-    float dpixel[2];  // Accumulated pixel count
-  };
-  float stdDevX;      // Measurement standard deviation
-  float stdDevY;      // Measurement standard deviation
-  float dt;           // Time during which pixels were accumulated
-} flowMeasurement_t;
-
-/** LiDAR TOF measurement **/
-typedef struct tofMeasurement_s {
-  uint32_t timestamp;
-  float distance;
-  float stdDev;
-} tofMeasurement_t;
-
-/** Absolute height measurement **/
-typedef struct heightMeasurement_s {
-  uint32_t timestamp;
-  float height;
-  float stdDev;
-} heightMeasurement_t;
 
 typedef struct attitude_s{
     float roll;
@@ -239,6 +178,7 @@ typedef struct PID_Params_s{
 }PID_Params_t;
 
 typedef struct PID_out_s{
+    attitude_t error = {0.0, 0.0, 0.0};
     attitude_t P_term;
     attitude_t I_term;
     attitude_t D_term;
@@ -273,6 +213,43 @@ typedef struct Controller_s{
     int aux4;
 }Controller_t; 
 
+/* -------------------------------------------------------- */
 
+
+typedef struct flowMeasurement_s {
+  uint32_t timestamp;
+  union {
+    struct {
+      float dpixelx;  // Accumulated pixel count x
+      float dpixely;  // Accumulated pixel count y
+    };
+    float dpixel[2];  // Accumulated pixel count
+  };
+  float stdDevX;      // Measurement standard deviation
+  float stdDevY;      // Measurement standard deviation
+  float dt;           // Time during which pixels were accumulated
+} flowMeasurement_t;
+
+/** LiDAR TOF measurement **/
+typedef struct tofMeasurement_s {
+  uint32_t timestamp;
+  float distance;
+  float stdDev;
+} tofMeasurement_t;
+
+/** Absolute height measurement **/
+typedef struct heightMeasurement_s {
+  uint32_t timestamp;
+  float height;
+  float stdDev;
+} heightMeasurement_t;
+
+// Notch filter data structure
+typedef struct notch_filter_s{
+    float coeffs_a[3];  // IIR coefficients
+    float coeffs_b[3];  // FIR coefficients
+    float inputs[3];    // Input history
+    float outputs[3];   // Output history
+} notch_filter_t;
 
 #endif

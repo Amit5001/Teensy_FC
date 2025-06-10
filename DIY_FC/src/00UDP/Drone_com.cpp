@@ -1,7 +1,7 @@
 #include "Drone_com.h"
 #include <Arduino.h>
 #include "Var_types.h"
-#include "RTCom/RTCom.h"
+#include "RTCom.h"
 
 namespace DRON_COM {
 RTCom rtcomSocket(SOCKET_ADDRESS, SOCKET_CONFIG);
@@ -111,9 +111,9 @@ void convert_Measurment_to_byte(Measurement_t meas,
 
 
 
-    PID_stab_out_data[0] = PID_stab_out.error.pitch;
-    PID_stab_out_data[1] = PID_stab_out.error.roll;
-    PID_stab_out_data[2] = PID_stab_out.error.yaw;
+    // PID_stab_out_data[0] = PID_stab_out.error.pitch;
+    // PID_stab_out_data[1] = PID_stab_out.error.roll;
+    // PID_stab_out_data[2] = PID_stab_out.error.yaw;
     PID_stab_out_data[3] = PID_stab_out.P_term.pitch;
     PID_stab_out_data[4] = PID_stab_out.P_term.roll;
     PID_stab_out_data[5] = PID_stab_out.P_term.yaw;
@@ -128,9 +128,9 @@ void convert_Measurment_to_byte(Measurement_t meas,
     PID_stab_out_data[14] = PID_stab_out.PID_ret.yaw;
     memcpy(PID_stab_out_byte, PID_stab_out_data, sizeof(PID_stab_out_byte));
 
-    PID_rate_data[0] = PID_rate_out.error.pitch;
-    PID_rate_data[1] = PID_rate_out.error.roll;
-    PID_rate_data[2] = PID_rate_out.error.yaw;
+    // PID_rate_data[0] = PID_rate_out.error.pitch;
+    // PID_rate_data[1] = PID_rate_out.error.roll;
+    // PID_rate_data[2] = PID_rate_out.error.yaw;
     PID_rate_data[3] = PID_rate_out.P_term.pitch;
     PID_rate_data[4] = PID_rate_out.P_term.roll;
     PID_rate_data[5] = PID_rate_out.P_term.yaw;
