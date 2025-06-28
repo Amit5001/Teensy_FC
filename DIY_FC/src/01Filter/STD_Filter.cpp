@@ -28,7 +28,7 @@ void STD_Filter::Gyro_HPF() {
 }
 
 void STD_Filter::A_filt() {
-    Acc_LPF();
-    Gyro_LPF();
+    // Acc_LPF();
+    // Gyro_LPF();
     Gyro_HPF();
 }

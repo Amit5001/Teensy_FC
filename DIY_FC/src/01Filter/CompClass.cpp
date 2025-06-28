@@ -12,27 +12,21 @@ void CompFilter::UpdateQ(Measurement_t* meas, float dt){
     float hx, hy, _2bx, _2bz, _4bx, _4bz;
 
 
-    vec3_t gyro_lpf_rad;
-    gyro_lpf_rad.x = meas->gyro_LPF.x * deg2rad;
-    gyro_lpf_rad.y = meas->gyro_LPF.y * deg2rad;
-    gyro_lpf_rad.z = meas->gyro_LPF.z * deg2rad;
-
-
     // Model based time propagation
-    qDot1 = 0.5f * (-q.x * gyro_lpf_rad.x - q.y * gyro_lpf_rad.y - q.z * gyro_lpf_rad.z);
-    qDot2 = 0.5f * (q.w * gyro_lpf_rad.x + q.y * gyro_lpf_rad.z - q.z * gyro_lpf_rad.y);
-    qDot3 = 0.5f * (q.w * gyro_lpf_rad.y - q.x * gyro_lpf_rad.z + q.z * gyro_lpf_rad.x);
-    qDot4 = 0.5f * (q.w * gyro_lpf_rad.z + q.x * gyro_lpf_rad.y - q.y * gyro_lpf_rad.x);
+    qDot1 = 0.5f * (-q.x * meas->gyroRAD.x - q.y * meas->gyroRAD.y - q.z * meas->gyroRAD.z);
+    qDot2 = 0.5f * (q.w * meas->gyroRAD.x + q.y * meas->gyroRAD.z - q.z * meas->gyroRAD.y);
+    qDot3 = 0.5f * (q.w * meas->gyroRAD.y - q.x * meas->gyroRAD.z + q.z * meas->gyroRAD.x);
+    qDot4 = 0.5f * (q.w * meas->gyroRAD.z + q.x * meas->gyroRAD.y - q.y * meas->gyroRAD.x);
     
     float BETA = calculateDynamicBeta(*meas);
     //float BETA = DEFAULT_BETA;
 
-    if(!(meas->acc_LPF.x == 0.0 && meas->acc_LPF.y ==0.0 && meas->acc_LPF.z ==0.0)) {
+    if(!(meas->acc.x == 0.0 && meas->acc.y ==0.0 && meas->acc.z ==0.0)) {
         // Normalise accelerometer measurement
-        recipNorm = invSqrt(meas->acc_LPF.x * meas->acc_LPF.x + meas->acc_LPF.y * meas->acc_LPF.y + meas->acc_LPF.z * meas->acc_LPF.z);
-        meas->acc_LPF.x *= recipNorm;
-        meas->acc_LPF.y *= recipNorm;
-        meas->acc_LPF.z *= recipNorm;
+        recipNorm = invSqrt(meas->acc.x * meas->acc.x + meas->acc.y * meas->acc.y + meas->acc.z * meas->acc.z);
+        meas->acc.x *= recipNorm;
+        meas->acc.y *= recipNorm;
+        meas->acc.z *= recipNorm;
 
         // Auxiliary variables to avoid repeated arithmetic
         _2qw = 2.0f * q.w;
@@ -50,10 +44,10 @@ void CompFilter::UpdateQ(Measurement_t* meas, float dt){
         qzqz = q.z * q.z;
 
         // Gradient decent algorithm corrective step
-        s0 = _4qw * qyqy + _2qy * meas->acc_LPF.x + _4qw * qxqx - _2qx * meas->acc_LPF.y;
-        s1 = _4qx * qzqz - _2qz * meas->acc_LPF.x + 4.0f * qwqw * q.x - _2qw * meas->acc_LPF.y - _4qx + _8qx * qxqx + _8qx * qyqy + _4qx * meas->acc_LPF.z;
-        s2 = 4.0f * qwqw * q.y + _2qw * meas->acc_LPF.x + _4qy * qzqz - _2qz * meas->acc_LPF.y - _4qy + _8qy * qxqx + _8qy * qyqy + _4qy * meas->acc_LPF.z;
-        s3 = 4.0f * qxqx * q.z - _2qx * meas->acc_LPF.x + 4.0f * qyqy * q.z - _2qy * meas->acc_LPF.y;
+        s0 = _4qw * qyqy + _2qy * meas->acc.x + _4qw * qxqx - _2qx * meas->acc.y;
+        s1 = _4qx * qzqz - _2qz * meas->acc.x + 4.0f * qwqw * q.x - _2qw * meas->acc.y - _4qx + _8qx * qxqx + _8qx * qyqy + _4qx * meas->acc.z;
+        s2 = 4.0f * qwqw * q.y + _2qw * meas->acc.x + _4qy * qzqz - _2qz * meas->acc.y - _4qy + _8qy * qxqx + _8qy * qyqy + _4qy * meas->acc.z;
+        s3 = 4.0f * qxqx * q.z - _2qx * meas->acc.x + 4.0f * qyqy * q.z - _2qy * meas->acc.y;
 
         recipNorm = invSqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3); // normalise step magnitude
         s0 *= recipNorm;

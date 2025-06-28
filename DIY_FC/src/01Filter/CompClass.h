@@ -16,8 +16,8 @@
 #define HIGH_MOTION 1.0f    // Lower than 1.5f to activate high correction sooner
 
 #define HIGH_BETA 0.6f // Rely more on accelerometer
-#define LOW_BETA 0.3f // Rely more on gyroscope
-#define DEFAULT_BETA 0.4f
+#define LOW_BETA 0.1f // Rely more on gyroscope
+#define DEFAULT_BETA 0.1f
 #define QUAT_THRESH 0.05f
 
 

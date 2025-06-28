@@ -24,7 +24,7 @@
 
 
 // UDP Communication Libraries:
-#include <00UDP/Drone_com.h>
+#include <00UDP/drone_comclass.h>
 
 
 /********************************************** Definitions **********************************************/
@@ -87,16 +87,10 @@ attitude_t estimated_attitude;
 attitude_t estimated_rate;
 PID_out_t PID_stab_out;
 PID_out_t PID_rate_out;
+PID_const_t PID_CONSTS;
 float t_PID_s = 0.0f;
 float t_PID_r = 0.0f;
 double actual_dt = 0.0f;
-
-// Filters:
-CompFilter Comp_filter(false); // True for enabling the magnetometer
-EKF Ekf_filter(&meas, DT);
-Madgwick madgwick_filter(&meas, &estimated_attitude, &q_est, SAMPLE_RATE, 0.9f); // Beta value is set to 0.1
-STD_Filter std_filter(&meas, DT); // Standard filter for the IMU data
-int filter_type = 0; // 0 for Complementary, 1 for Kalman
 
 // Timers periods:
 const unsigned long PWM_PERIOD_1 = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz. Recieving PWM signal every 2ms -- NOT REALLY NECESSARY, we have the same variable at motors.h
@@ -104,9 +98,19 @@ const unsigned long STAB_PERIOD = 1000000 / (ESC_FREQUENCY/2); // 300 Hz period 
 const unsigned long IMU_PERIOD = 1000000 / SAMPLE_RATE;
 const unsigned long DATA_PERIOD = 1000000 / 50; // 50 Hz period in microseconds
 
+// Filters:
+CompFilter Comp_filter(false); // True for enabling the magnetometer
+// EKF Ekf_filter(&meas, 1/STAB_PERIOD);
+EKF Ekf_filter(&meas, DT);
+Madgwick madgwick_filter(&meas, &estimated_attitude, &q_est, SAMPLE_RATE, 0.9f); // Beta value is set to 0.1
+STD_Filter std_filter(&meas, DT); // Standard filter for the IMU data
+int filter_type = 0; // 0 for Complementary, 1 for Kalman
+Drone_com drone_com(&meas, &q_est, &desired_attitude, &motor_pwm, &desired_rate, &estimated_attitude, &estimated_rate, &PID_stab_out, &PID_rate_out, &controller_data, &PID_CONSTS);
+
 // Timers:
 elapsedMicros motor_timer;
 elapsedMicros stab_timer;
+elapsedMicros stab_timer_filt;
 elapsedMicros imu_timer;
 elapsedMicros Data_timer;
 
@@ -132,7 +136,7 @@ void setup() {
     while (!Serial);
     Serial.println("USB Serial initialized");
 
-    DRON_COM::init_com();
+    drone_com.init_com();
 
     Serial.println("UDP initialized");
 
@@ -149,7 +153,8 @@ void setup() {
     IMU_init();
 
     // Initializing motors and PID:
-    initializePIDParams();
+    setPID_params(&PID_CONSTS);
+    getbot_param(PID_CONSTS);
     GyroMagCalibration(); 
     motors.Motors_init();
 
@@ -166,19 +171,19 @@ void loop() {
         actual_dt = (double)imu_timer / 1000000.0f;
         // Update the measurement:
         Update_Measurement();
+        
+        if (stab_timer_filt >= STAB_PERIOD){
+            std_filter.A_filt(); // Apply the standard filter to the IMU data
+            stab_timer_filt = 0;
+        }
+        filter_method();
 
-        // Getting filtered data:
-        Comp_filter.UpdateQ(&meas, actual_dt/2);
-        Comp_filter.GetEulerRPYdeg(&estimated_attitude, meas.initial_heading);
-        Comp_filter.GetQuaternion(&q_est);
-
-        Serial.println(estimated_attitude.roll);
-
+        
         if (is_armed){
             // Get Actual rates:
-            estimated_rate.roll = meas.gyro_LPF.x;
-            estimated_rate.pitch = meas.gyro_LPF.y;
-            estimated_rate.yaw = meas.gyro_LPF.z;
+            estimated_rate.roll = meas.gyroDEG.x;
+            estimated_rate.pitch = meas.gyroDEG.y;
+            estimated_rate.yaw = meas.gyroDEG.z;
 
             if ((controller_data.aux1 > 1500) && (stab_timer >= STAB_PERIOD)){ // Stabilize mode:
                     // Calculating dt for the PID- in seconds:
@@ -211,13 +216,8 @@ void loop() {
 
         // Sending new UDP Packet:
         if (Data_timer >= DATA_PERIOD){
-            DRON_COM::convert_Measurment_to_byte(meas,
-                                                q_est, desired_attitude,
-                                                motor_pwm, desired_rate,
-                                                estimated_attitude, estimated_rate,
-                                                PID_stab_out, PID_rate_out, controller_data);
-
-            DRON_COM::send_data();
+            drone_com.convert_Measurment_to_byte();
+            drone_com.send_data();
             Data_timer = 0;
         }
         
@@ -235,10 +235,10 @@ void Update_Measurement(){
     mag.read();    
     meas.acc.x = IMU.a.x * POL_ACC_SENS - meas.acc_bias.x;
     meas.acc.y = IMU.a.y * POL_ACC_SENS - meas.acc_bias.y;
-    meas.acc.z = IMU.a.z * POL_ACC_SENS - meas.acc_bias.z;
+    // meas.acc.z = IMU.a.z * POL_ACC_SENS - meas.acc_bias.z;
     // meas.acc.x = IMU.a.x * POL_ACC_SENS;
     // meas.acc.y = IMU.a.y * POL_ACC_SENS;
-    // meas.acc.z = IMU.a.z * POL_ACC_SENS;
+    meas.acc.z = IMU.a.z * POL_ACC_SENS;
     if (abs(meas.acc.x) < IMU_THRESHOLD) { meas.acc.x = 0;}
     if (abs(meas.acc.y) < IMU_THRESHOLD) { meas.acc.y = 0;}
     if (abs(meas.acc.z) < IMU_THRESHOLD) { meas.acc.z = 0;}
@@ -334,7 +334,12 @@ void IMU_init(){
     IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
     // These configurations are based on tables 44,45,47,48 in the datasheet https://www.pololu.com/file/0J1899/lsm6dso.pdf
     IMU.writeReg(LSM6::CTRL2_G, 0b01110000);  // 0b1010 for ODR 833 Hz, 0b0000 for 250 dps range. No internal filter
-    IMU.writeReg(LSM6::CTRL1_XL, 0b01110000);  // 0b1010 for ODR 833 Hz, 0b0000 for 2g range. No internal filter.
+    IMU.writeReg(LSM6::CTRL4_C, 0b00000010); // Set LPF1_SEL_G bit to 1
+    IMU.writeReg(LSM6::CTRL6_C, 0b00000110); // Set gyroscope LPF1 bandwidth to ~96.6 Hz (closest to ODR/10)
+
+    IMU.writeReg(LSM6::CTRL1_XL, 0b01110010);  // 0b1010 for ODR 833 Hz, 0b0000 for 2g range. No internal filter.
+    IMU.writeReg(LSM6::CTRL8_XL, 0b00000010); // HPCF_XL[2:0] = 001 for ODR/10
+
 
     mag.enableDefault();
     mag.writeReg(LIS3MDL::CTRL_REG1, 0b11111010); // 1 KHz, high performance mode

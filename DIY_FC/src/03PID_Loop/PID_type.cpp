@@ -14,59 +14,36 @@ PID_Params_t rate_params;  // PID parameters for rate controller
 PID_Params_t stab_params;  // PID parameters for stabilization controller
 
 // Initialization of PID parameters. Need to run at setup in the main code.
-void initializePIDParams(float RrollPID[3] = nullptr, float RpitchPID[3] = nullptr, float RyawPID[3] = nullptr,
-                         float Imax_rate[2] = nullptr, float SrollPID[3] = nullptr, float SpitchPID[3] = nullptr,
-                         float SyawPID[3] = nullptr, float Imax_stab[2] = nullptr) {  // Rate mode parameters
-
-    const float defaultRrollPID[3] = {1.6, 0.15f, 0.95f};  // DO NOT GO OVER Kd=0.9 !!!! Drone will kill someone!!!
-    const float defaultRpitchPID[3] = {1.6f, 0.15f, 0.95f};
-    const float defaultRyawPID[3] = {2.0f, 0.0f, 0.05f};
-    const float defaultImax_rate[2] = {100.0f, 100.0f};
-
-    // Default STABILIZE mode parameter values
-    const float defaultSrollPID[3] = {10.0f, 0.01f, 0.0f};
-    const float defaultSpitchPID[3] = {9.0f, 0.01f, 0.0f};
-    const float defaultSyawPID[3] = {4.0f, 0.0f, 0.0f};
-    const float defaultImax_stab[2] = {100.0f, 100.0f};
-
-    // Assign default values if nullptr is passed
-    if (RrollPID == nullptr) RrollPID = const_cast<float*>(defaultRrollPID);
-    if (RpitchPID == nullptr) RpitchPID = const_cast<float*>(defaultRpitchPID);
-    if (RyawPID == nullptr) RyawPID = const_cast<float*>(defaultRyawPID);
-    if (Imax_rate == nullptr) Imax_rate = const_cast<float*>(defaultImax_rate);
-    if (SrollPID == nullptr) SrollPID = const_cast<float*>(defaultSrollPID);
-    if (SpitchPID == nullptr) SpitchPID = const_cast<float*>(defaultSpitchPID);
-    if (SyawPID == nullptr) SyawPID = const_cast<float*>(defaultSyawPID);
-    if (Imax_stab == nullptr) Imax_stab = const_cast<float*>(defaultImax_stab);
-
-    rate_params.RollP = RrollPID[0];
-    rate_params.RollI = RrollPID[1];
-    rate_params.RollD = RrollPID[2];
-    rate_params.PitchP = RpitchPID[0];
-    rate_params.PitchI = RpitchPID[1];
-    rate_params.PitchD = RpitchPID[2];
-    rate_params.YawP = RyawPID[0];
-    rate_params.YawI = RyawPID[1];
-    rate_params.YawD = RyawPID[2];
-    rate_params.Imax_roll = Imax_rate[0];
+void setPID_params(PID_const_t* pid_consts) {
+    rate_params.RollP = pid_consts->defaultRrollPID[0];
+    rate_params.RollI = pid_consts->defaultRrollPID[1];
+    rate_params.RollD = pid_consts->defaultRrollPID[2];
+    rate_params.PitchP = pid_consts->defaultRpitchPID[0];
+    rate_params.PitchI = pid_consts->defaultRpitchPID[1];
+    rate_params.PitchD = pid_consts->defaultRpitchPID[2];
+    rate_params.YawP = pid_consts->defaultRyawPID[0];
+    rate_params.YawI = pid_consts->defaultRyawPID[1];
+    rate_params.YawD = pid_consts->defaultRyawPID[2];
+    rate_params.Imax_roll = pid_consts->defaultImax_rate[0];
     rate_params.Imax_pitch = rate_params.Imax_roll;
-    rate_params.Imax_yaw = Imax_rate[1];
+    rate_params.Imax_yaw = pid_consts->defaultImax_rate[1];
 
     // Stabilize mode parameters
-    stab_params.RollP = SrollPID[0];
-    stab_params.RollI = SrollPID[1];
-    stab_params.RollD = SrollPID[2];
-    stab_params.PitchP = SpitchPID[0];
-    stab_params.PitchI = SpitchPID[1];
-    stab_params.PitchD = SpitchPID[2];
-    stab_params.YawP = SyawPID[0];
-    stab_params.YawI = SyawPID[1];
-    stab_params.YawD = SyawPID[2];
-    stab_params.Imax_roll = Imax_stab[0];
+    stab_params.RollP = pid_consts->defaultSrollPID[0];
+    stab_params.RollI = pid_consts->defaultSrollPID[1];
+    stab_params.RollD = pid_consts->defaultSrollPID[2];
+    stab_params.PitchP = pid_consts->defaultSpitchPID[0];
+    stab_params.PitchI = pid_consts->defaultSpitchPID[1];
+    stab_params.PitchD = pid_consts->defaultSpitchPID[2];
+    stab_params.YawP = pid_consts->defaultSyawPID[0];
+    stab_params.YawI = pid_consts->defaultSyawPID[1];
+    stab_params.YawD = pid_consts->defaultSyawPID[2];
+    stab_params.Imax_roll = pid_consts->defaultImax_stab[0];
     stab_params.Imax_pitch = stab_params.Imax_roll;
-    stab_params.Imax_yaw = Imax_stab[1];
+    stab_params.Imax_yaw = pid_consts->defaultImax_stab[1];
 
     // Alphas for the derivative term:
+    // Larger tau means slower response, more filtering. smaller tau means faster response, less filtering.
     float cutoff_freq = 5.0f;
     rate_params.Alpha_roll = (1.0f / 2.0f * PI * cutoff_freq * DT + 1.0f);
     rate_params.Alpha_pitch = (1.0f / 2.0f * PI * cutoff_freq * DT + 1.0f);
@@ -75,7 +52,39 @@ void initializePIDParams(float RrollPID[3] = nullptr, float RpitchPID[3] = nullp
     stab_params.Alpha_roll = (1.0f / 2.0f * PI * cutoff_freq * DT + 1.0f);
     stab_params.Alpha_pitch = (1.0f / 2.0f * PI * cutoff_freq * DT + 1.0f);
     stab_params.Alpha_yaw = (1.0f / 2.0f * PI * cutoff_freq * DT + 1.0f);
-    // Set the Imax values for the rate controller
+
+
+    Serial.print("rate_params.RollP: ");
+    Serial.println(rate_params.RollP);
+    Serial.print("rate_params.RollI: ");
+    Serial.println(rate_params.RollI);
+    Serial.print("rate_params.RollD: ");
+    Serial.println(rate_params.RollD);
+    Serial.print("rate_params.PitchP: ");
+    Serial.println(rate_params.PitchP);
+    Serial.print("rate_params.PitchI: ");
+    Serial.println(rate_params.PitchI);
+    Serial.print("rate_params.YawP: ");
+    Serial.println(rate_params.YawP);
+    Serial.print("stableize.rollp: ");
+    Serial.println(stab_params.RollP);
+    Serial.print("stableize.rolli: ");
+    Serial.println(stab_params.RollI);
+    Serial.print("stableize.rolld: ");
+    Serial.println(stab_params.RollD);
+    Serial.print("stableize.pitchp: ");
+    Serial.println(stab_params.PitchP);
+    Serial.print("stableize.pitchi: ");
+    Serial.println(stab_params.PitchI);
+    Serial.print("stableize.pitchd: ");
+    Serial.println(stab_params.PitchD);
+    Serial.print("stableize.yawp: ");
+    Serial.println(stab_params.YawP);
+    Serial.print("stableize.yawi: ");
+    Serial.println(stab_params.YawI);
+    Serial.print("stableize.yawd: ");
+    Serial.println(stab_params.YawD);
+    Serial.print("__________________________________________________________");
 }
 
 PID_out_t PID_rate(attitude_t des_rate, attitude_t actual_rate, float DT) {  // Actual rate will be in deg/s
