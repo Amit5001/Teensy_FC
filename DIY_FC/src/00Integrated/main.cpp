@@ -47,8 +47,14 @@
 #define CONTROLL_THR_MIN 1480
 
 /**** IMU Data parameters:  ****/
-#define POL_GYRO_SENS 17.5/1000.0f    // FS = 500
+#define POL_GYRO_SENS 8.75/1000.0f    // FS = 250
+// #define POL_GYRO_SENS 17.5/1000.0f    // FS = 500
+// #define POL_GYRO_SENS 35/1000.0f   // FS = 1000
+#define POL_GYRO_SENS 70/1000.0f   // FS = 2000
 #define POL_ACC_SENS 0.061/1000.0f     // FS = 2g, 0.061 mg/LSB
+// #define POL_ACC_SENS 0.122/1000.0f  // FS = 4g, 0.122 mg/LSB
+// #define POL_ACC_SENS 0.244/1000.0f  // FS = 8g, 0.244 mg/LSB
+// #define POL_ACC_SENS 0.488/1000.0f // FS = 16g, 0.488 mg/LSB
 #define POL_MAG_SENS 1/6842.0f         // FS = 4 gauss
 #define IMU_THRESHOLD 0.05f            // Threshold for the IMU data to be considered valid
 
@@ -173,10 +179,9 @@ void loop() {
         Update_Measurement();
         
         if (stab_timer_filt >= STAB_PERIOD){
-            std_filter.A_filt(); // Apply the standard filter to the IMU data
+            filter_method();
             stab_timer_filt = 0;
         }
-        filter_method();
 
         
         if (is_armed){
@@ -331,14 +336,18 @@ void IMU_init(){
         while (1);
         }
 
-    IMU.enableDefault(); // 1.66 kHz, 2g, 245 dps
+    IMU.enableDefault(); // Default settings for the IMU
     // These configurations are based on tables 44,45,47,48 in the datasheet https://www.pololu.com/file/0J1899/lsm6dso.pdf
-    IMU.writeReg(LSM6::CTRL2_G, 0b01110000);  // 0b1010 for ODR 833 Hz, 0b0000 for 250 dps range. No internal filter
-    IMU.writeReg(LSM6::CTRL4_C, 0b00000010); // Set LPF1_SEL_G bit to 1
-    IMU.writeReg(LSM6::CTRL6_C, 0b00000110); // Set gyroscope LPF1 bandwidth to ~96.6 Hz (closest to ODR/10)
+    
+    // Setting the Gyro:
+    // IMU.writeReg(LSM6::CTRL2_G, 0b01110000);  // 0b1010 for ODR 833 Hz, 0b0000 for 250 dps range. No internal filter
+    IMU.writeReg(LSM6::CTRL2_G, 0b01100000);  // ODR at 416 Hz, 250 dps.
+    IMU.writeReg(LSM6::CTRL4_C, 0b00000010); // Set LPF1_SEL_G bit to 1. This enables the LPF1 filter for the gyroscope.
+    IMU.writeReg(LSM6::CTRL6_C, 0b00000110); // This line sets the LPF1 bandwidth to 24.6 Hz if ODR=416 Hz, to 25 Hz if ODR=833 G=Hz.
 
-    IMU.writeReg(LSM6::CTRL1_XL, 0b01110010);  // 0b1010 for ODR 833 Hz, 0b0000 for 2g range. No internal filter.
-    IMU.writeReg(LSM6::CTRL8_XL, 0b00000010); // HPCF_XL[2:0] = 001 for ODR/10
+    // IMU.writeReg(LSM6::CTRL1_XL, 0b01110010);  // 0b1010 for ODR 833 Hz, 0b0000 for 2g range. No internal filter.
+    IMU.writeReg(LSM6::CTRL1_XL, 0b01100010);  // ODR at 416 Hz, 2g FS, enabling LPF2.
+    IMU.writeReg(LSM6::CTRL8_XL, 0b00000100); // LPF2 bandwidth at ODR/20, will result in 20.8 Hz if ODR=416 Hz.
 
 
     mag.enableDefault();
@@ -388,7 +397,7 @@ void check_arming_state() {
 
 /********* Functions for filter choosing *********/
 void compclass_function() {
-    Comp_filter.UpdateQ(&meas, actual_dt / 2);
+    Comp_filter.UpdateQ(&meas, DT);
     Comp_filter.GetEulerRPYdeg(&estimated_attitude, meas.initial_heading);
     Comp_filter.GetQuaternion(&q_est);
 }

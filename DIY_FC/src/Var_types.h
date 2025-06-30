@@ -5,10 +5,11 @@
 #include <string>
 #include <array>
 
-#define ESC_FREQUENCY 500  // Frequency of the ESCs
+#define ESC_FREQUENCY 400  // Frequency of the ESCs
 #define STAB_FREQUENCY ESC_FREQUENCY / 2  // Frequency of the STAB
 
-static const float SAMPLE_RATE = 833.0f;
+// static const float SAMPLE_RATE = 833.0f;
+static const float SAMPLE_RATE = 416.0f;
 static const float DT = 1.0f / SAMPLE_RATE;
 
 // Frequencies to be used with the RATE_DO_EXECUTE_HZ macro. Do NOT use an arbitrary number.
