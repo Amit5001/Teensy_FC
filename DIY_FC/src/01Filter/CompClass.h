@@ -12,13 +12,12 @@
 #endif
 
 // Motion thresholds and filter parameters
-#define LOW_MOTION 0.15f    // Slightly lower than 0.2f
-#define HIGH_MOTION 1.0f    // Lower than 1.5f to activate high correction sooner
+#define LOW_MOTION 0.15f * 9.81    // Slightly lower than 0.2f
+#define HIGH_MOTION 1.0f * 9.81   // Lower than 1.5f to activate high correction sooner
 
-#define HIGH_BETA 0.6f // Rely more on accelerometer
-#define LOW_BETA 0.1f // Rely more on gyroscope
-#define DEFAULT_BETA 0.1f
-#define QUAT_THRESH 0.05f
+#define HIGH_BETA 0.9f // Rely more on accelerometer
+#define LOW_BETA 0.3f // Rely more on gyroscope
+#define DEFAULT_BETA 0.8f
 
 
 class CompFilter {
@@ -29,23 +28,18 @@ class CompFilter {
 
         quat_t q = {0.0, 0.0, 0.0, 1.0};
         quat_t qDot_prev ={0.0, 0.0, 0.0, 0.0};
-        // Params for HPF and LPF:
-        vec3_t accFiltered = {0.0, 0.0, 0.0};
-        vec3_t gyroFiltered = {0.0, 0.0, 0.0};
-        vec3_t magFiltered = {0.0, 0.0, 0.0};
-        vec3_t gyroPrev = {0.0, 0.0, 0.0};
-        float gyroNorm = 0.0;
+        float accNorm = 0.0;
         float drift = 0.0;
         float driftRate = 0.005;
         float gravX , gravY, gravZ; // Unit vector in the direction of the estimated gravity
 
 
-        void UpdateQ(Measurement_t* , float );
-        float calculateDynamicBeta(Measurement_t );
+        void UpdateQ(vec3_t* gyro, vec3_t* acc, float dt);
+        float calculateDynamicBeta(vec3_t acc);
         float invSqrt(float x);
         void GetQuaternion(quat_t* q_);
         void GetEulerRPYrad(attitude_s* , float);
-        void GetEulerRPYdeg(attitude_s* , float);
+        void GetEulerRPYdeg(attitude_s*);
         void estimatedGravityDir(float* , float* , float*);
         float GetAccZ(float , float , float );
 };

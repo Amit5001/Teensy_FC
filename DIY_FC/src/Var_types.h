@@ -5,14 +5,37 @@
 #include <string>
 #include <array>
 
+/********************************************** Definitions **********************************************/
 #define ESC_FREQUENCY 400  // Frequency of the ESCs
 #define STAB_FREQUENCY ESC_FREQUENCY / 2  // Frequency of the STAB
 
-// static const float SAMPLE_RATE = 833.0f;
 static const float SAMPLE_RATE = 416.0f;
 static const float DT = 1.0f / SAMPLE_RATE;
 
-// Frequencies to be used with the RATE_DO_EXECUTE_HZ macro. Do NOT use an arbitrary number.
+// Timers periods:
+const unsigned long IMU_PERIOD = 1000000 / SAMPLE_RATE;
+const unsigned long PWM_PERIOD_1 = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz. Recieving PWM signal every 2ms -- NOT REALLY NECESSARY, we have the same variable at motors.h
+const unsigned long STAB_PERIOD = 1000000 / (ESC_FREQUENCY/2); // 300 Hz period in microseconds
+const unsigned long DATA_PERIOD = 1000000 / 50; // 50 Hz period in microseconds
+
+
+#define ELRS_SERIAL 1
+#define MOTOR1_PIN 2
+#define MOTOR2_PIN 3
+#define MOTOR3_PIN 4
+#define MOTOR4_PIN 5
+
+/**** Max Angle and max rate ****/
+#define MAX_ANGLE 15.0f
+#define MAX_RATE 200.0f
+#define CONTROLLER_MIN 988
+#define CONTROLLER_MAX 2012
+#define CONTROLLER_MID 1500
+
+// DeadBand for the controller throttle:
+#define CONTROLL_THR_MAX 1520
+#define CONTROLL_THR_MIN 1480
+
 
 #ifndef PI
 #define PI 3.14159265358979323846f
@@ -20,6 +43,7 @@ static const float DT = 1.0f / SAMPLE_RATE;
 #define deg2rad PI / 180.0f
 #define rad2deg 180.0f / PI
 
+/********************************************** Structs Definitions **********************************************/
 typedef struct {
     float x;
     float y;

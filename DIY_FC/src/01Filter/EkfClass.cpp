@@ -70,27 +70,27 @@ attitude_t EKF::kalman3D(Vector3f gyro_sample, Vector3f euler_data) {
     P = P + Q * (1.0f / SAMPLE_RATE);
 
     
-    Serial.println("R_matrix");
-    for (size_t i = 0; i < 3; i++)
-    {
-        for (size_t j = 0; j < 3; j++)
-        {
-            Serial.print(R(i,j));
-            Serial.print(" ");
-        }
-        Serial.println();
-    }
-    Serial.println("***********************8");
-    Serial.println("Q_matrix");
-    for (size_t i = 0; i < 3; i++)
-    {
-        for (size_t j = 0; j < 3; j++)
-        {
-            Serial.print(Q(i,j));
-            Serial.print(" ");
-        }
-        Serial.println();
-    }
+    // Serial.println("R_matrix");
+    // for (size_t i = 0; i < 3; i++)
+    // {
+    //     for (size_t j = 0; j < 3; j++)
+    //     {
+    //         Serial.print(R(i,j));
+    //         Serial.print(" ");
+    //     }
+    //     Serial.println();
+    // }
+    // Serial.println("***********************8");
+    // Serial.println("Q_matrix");
+    // for (size_t i = 0; i < 3; i++)
+    // {
+    //     for (size_t j = 0; j < 3; j++)
+    //     {
+    //         Serial.print(Q(i,j));
+    //         Serial.print(" ");
+    //     }
+    //     Serial.println();
+    // }
 
     Matrix3f S = P + R;
     Matrix3f K = P * S.inverse();
