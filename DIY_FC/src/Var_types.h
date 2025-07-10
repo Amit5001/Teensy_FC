@@ -4,46 +4,38 @@
 #include <Arduino.h>
 #include <string>
 #include <array>
-
-/********************************************** Definitions **********************************************/
-#define ESC_FREQUENCY 400  // Frequency of the ESCs
+#include "drone_identify.h"
+// #define ESC_FREQUENCY 500  // Frequency of the ESCs
+const float G = 9.80665; // Gravity constant in m/s^2
+#define ESC_FREQUENCY 400
 #define STAB_FREQUENCY ESC_FREQUENCY / 2  // Frequency of the STAB
 
 static const float SAMPLE_RATE = 416.0f;
 static const float DT = 1.0f / SAMPLE_RATE;
 
-// Timers periods:
+const unsigned long STAB_PERIOD = 1000000 / STAB_FREQUENCY;  // 200 Hz period in microseconds
+const unsigned long MOTOR_PERIOD = 1000000 / ESC_FREQUENCY;  // 1,000,000 us / frequency in Hz
 const unsigned long IMU_PERIOD = 1000000 / SAMPLE_RATE;
-const unsigned long PWM_PERIOD_1 = 1000000 / ESC_FREQUENCY; // 1,000,000 us / frequency in Hz. Recieving PWM signal every 2ms -- NOT REALLY NECESSARY, we have the same variable at motors.h
-const unsigned long STAB_PERIOD = 1000000 / (ESC_FREQUENCY/2); // 300 Hz period in microseconds
-const unsigned long DATA_PERIOD = 1000000 / 50; // 50 Hz period in microseconds
+const unsigned long SEND_DATA_PERIOD = 1000000 / 50;  // 50 Hz
 
 
-#define ELRS_SERIAL 1
-#define MOTOR1_PIN 2
-#define MOTOR2_PIN 3
-#define MOTOR3_PIN 4
-#define MOTOR4_PIN 5
-
-/**** Max Angle and max rate ****/
-#define MAX_ANGLE 15.0f
+#define ELRSSerial Serial1  // Use Serial1 for the CRSF communication
+#define MOTOR1_PIN 2        // front right
+#define MOTOR2_PIN 3        // back right
+#define MOTOR3_PIN 4        // back left
+#define MOTOR4_PIN 5        // fron left
+#define MAX_ANGLE 10.0f
 #define MAX_RATE 200.0f
 #define CONTROLLER_MIN 988
 #define CONTROLLER_MAX 2012
-#define CONTROLLER_MID 1500
-
-// DeadBand for the controller throttle:
 #define CONTROLL_THR_MAX 1520
 #define CONTROLL_THR_MIN 1480
 
 
-#ifndef PI
-#define PI 3.14159265358979323846f
-#endif
+// #define PI 3.14159265358979323846f
 #define deg2rad PI / 180.0f
 #define rad2deg 180.0f / PI
 
-/********************************************** Structs Definitions **********************************************/
 typedef struct {
     float x;
     float y;
@@ -217,73 +209,6 @@ typedef struct state_s {
 
 /////// pid config
 
-typedef struct {
-    uint8_t mac[6];
-    std::array<float, 3> defaultRrollPID;  // DO NOT GO OVER Kd=0.9 !!!! Drone will kill someone!!!
-    std::array<float, 3> defaultRpitchPID;
-    std::array<float, 3> defaultRyawPID;
-    std::array<float, 2> defaultImax_rate;
 
-    // STABILIZE mode parameter values
-    std::array<float, 3> defaultSrollPID;
-    std::array<float, 3> defaultSpitchPID;
-    std::array<float, 3> defaultSyawPID;
-    std::array<float, 2> defaultImax_stab;
-} PID_const_t;
-
-inline void getMAC(uint8_t* pMacAddress) {
-    for (uint8_t i = 0; i < 2; i++)
-        pMacAddress[i] = (HW_OCOTP_MAC1 >> ((1 - i) * 8)) & 0xFF;
-    for (uint8_t i = 0; i < 4; i++)
-        pMacAddress[i + 2] = (HW_OCOTP_MAC0 >> ((3 - i) * 8)) & 0xFF;
-}
-
-inline void printMac(uint8_t* pMacAddress) {
-    printf("MAC Address = %02X:%02X:%02X:%02X:%02X:%02X\r\n", pMacAddress[0], pMacAddress[1], pMacAddress[2], pMacAddress[3], pMacAddress[4], pMacAddress[5]);
-}
-
-inline bool compareMac(uint8_t mac1[6], uint8_t mac2[6]) {
-    for (int i = 0; i < 6; i++) {
-        if (mac1[i] != mac2[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-inline uint8_t mac0[6] = {0x04, 0xE9, 0xE5, 0x18, 0xEE, 0x80};  // drone naor
-inline uint8_t mac1[6] = {0x04, 0xE9, 0xE5, 0x18, 0xEE, 0xFC};  // drone naor
-inline uint8_t mac2[6] = {0x04, 0xE9, 0xE5, 0x19, 0x2B, 0x2D};  // drone amit
-
-inline void getbot_param(PID_const_t& myDrone) {
-    getMAC(myDrone.mac);
-    if (compareMac(myDrone.mac, mac0) || compareMac(myDrone.mac, mac1)) {
-        myDrone.defaultRrollPID = {1.6f, 0.15f, 0.95f};
-        myDrone.defaultRpitchPID = {1.6f, 0.15f, 0.95f};
-        myDrone.defaultRyawPID = {2.0f, 0.0f, 0.05f};
-        myDrone.defaultImax_rate = {100.0f, 100.0f};
-        myDrone.defaultSrollPID = {10.0f, 0.01f, 0.0f};
-        myDrone.defaultSpitchPID = {9.0f, 0.01f, 0.0f};
-        myDrone.defaultSyawPID = {4.0f, 0.0f, 0.0f};
-        myDrone.defaultImax_stab = {100.0f, 100.0f};
-        return;
-    } else if (compareMac(myDrone.mac, mac2) ) {
-        myDrone.defaultRrollPID = {1.6f, 0.15f, 0.95f};
-        myDrone.defaultRpitchPID = {1.6f, 0.15f, 0.95f};
-        myDrone.defaultRyawPID = {2.0f, 0.0f, 0.05f};
-        myDrone.defaultImax_rate = {100.0f, 100.0f};
-        myDrone.defaultSrollPID = {10.0f, 0.01f, 0.0f};
-        myDrone.defaultSpitchPID = {9.0f, 0.01f, 0.0f};
-        myDrone.defaultSyawPID = {4.0f, 0.0f, 0.0f};
-        myDrone.defaultImax_stab = {100.0f, 100.0f};
-        return;
-    } else {
-        while (1) {
-            Serial.print("Unknown MAC Address ");
-            printMac(myDrone.mac);
-            delay(1000);
-        }
-    }
-}
 
 #endif

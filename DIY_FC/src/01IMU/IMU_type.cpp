@@ -3,6 +3,16 @@
 IMU_Func::IMU_Func(Measurement_t* meas, int ODR, int G_FS, int A_FS, int G_LPF_FREQ, int A_LPF_FREQ, bool EN_LPF) : _IMU() {
     _meas = meas; // Initialize the static pointer to the measurement struct
     // Set the ODR rate based on the input parameter
+    Serial.print("ODR: ");
+    Serial.print(ODR);
+    Serial.print(",");
+    Serial.print("G_FS: ");
+    Serial.print(G_FS);
+    Serial.print(",");
+    Serial.print("A_FS: ");
+    Serial.print(A_FS);
+    Serial.print(",");
+    
     switch (ODR) {
         case 416:
             ODR_REG = 0b01100000; // 416 Hz
@@ -14,7 +24,7 @@ IMU_Func::IMU_Func(Measurement_t* meas, int ODR, int G_FS, int A_FS, int G_LPF_F
             Serial.println("Unsupported ODR_RATE. Defaulting to 416 Hz.");
             ODR_REG = 0b01100000; // Default to 416 Hz
             break;
-
+    }
     switch(G_FS) {
         case 250:
             GYRO_FS_REG = 0b00000000; // 250 dps
@@ -89,7 +99,6 @@ IMU_Func::IMU_Func(Measurement_t* meas, int ODR, int G_FS, int A_FS, int G_LPF_F
             GYRO_LPF_REG = 0b00000000; // No LPF
             ACC_LPF_REG = 0b00000000; // No LPF
             }
-    }
 }
 
 void IMU_Func::init_IMU() {
@@ -135,6 +144,7 @@ void IMU_Func::Read_IMU() {
     _meas->gyroRAD.x = _meas->gyroDEG.x * deg2rad;
     _meas->gyroRAD.y = _meas->gyroDEG.y * deg2rad;
     _meas->gyroRAD.z = _meas->gyroDEG.z * deg2rad;
+
 }
 
 

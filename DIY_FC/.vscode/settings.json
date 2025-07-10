@@ -3,6 +3,8 @@
     "files.associations": {
         "*.tcc": "cpp",
         "lu": "cpp",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "dense": "cpp",
+        "string": "cpp"
     }
 }

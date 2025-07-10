@@ -8,6 +8,7 @@ attitude_t rate_err_LPF;
 attitude_t rate_err_clean;
 attitude_t rate_err = {0.0, 0.0, 0.0};
 attitude_t stab_err = {0.0, 0.0, 0.0};
+attitude_t prev_rate = {0.0, 0.0, 0.0};
 PID_out_t rate_out, stab_out;  // Output of rate and stabilization controllers
 
 PID_Params_t rate_params;  // PID parameters for rate controller
@@ -66,6 +67,10 @@ void setPID_params(PID_const_t* pid_consts) {
     // Serial.println(rate_params.PitchI);
     // Serial.print("rate_params.YawP: ");
     // Serial.println(rate_params.YawP);
+    // Serial.print("rate_params.YawI: ");
+    // Serial.println(rate_params.YawI);
+    // Serial.print("rate_params.Yawd: ");
+    // Serial.println(rate_params.YawD);
     // Serial.print("stableize.rollp: ");
     // Serial.println(stab_params.RollP);
     // Serial.print("stableize.rolli: ");
@@ -78,12 +83,6 @@ void setPID_params(PID_const_t* pid_consts) {
     // Serial.println(stab_params.PitchI);
     // Serial.print("stableize.pitchd: ");
     // Serial.println(stab_params.PitchD);
-    // Serial.print("stableize.yawp: ");
-    // Serial.println(stab_params.YawP);
-    // Serial.print("stableize.yawi: ");
-    // Serial.println(stab_params.YawI);
-    // Serial.print("stableize.yawd: ");
-    // Serial.println(stab_params.YawD);
     // Serial.print("__________________________________________________________");
 }
 
@@ -127,21 +126,21 @@ PID_out_t PID_stab(attitude_t des_angle, attitude_t angle, float DT) {
     angle_err = des_angle - angle;
 
     // Calculate P term:
-    stab_out.P_term.roll = stab_params.RollP * angle_err.roll;
-    stab_out.P_term.pitch = stab_params.PitchP * angle_err.pitch;
-    stab_out.P_term.yaw = stab_params.YawP * angle_err.yaw;
+    stab_out.P_term.roll = stab_params.RollP * (angle_err.roll - prev_rate.roll);
+    stab_out.P_term.pitch = stab_params.PitchP * (angle_err.pitch - prev_rate.pitch);
+    stab_out.P_term.yaw = stab_params.YawP * (angle_err.yaw - prev_rate.yaw);
 
     // Calculate I term:
     stab_out.I_term.roll = stab_out.prev_Iterm.roll + (stab_params.RollI / 2) * (angle_err.roll + stab_out.prev_err.roll) * DT;
     stab_out.I_term.pitch = stab_out.prev_Iterm.pitch + (stab_params.PitchI / 2) * (angle_err.pitch + stab_out.prev_err.pitch) * DT;
     stab_out.I_term.yaw = stab_out.prev_Iterm.yaw + (stab_params.YawI / 2) * (angle_err.yaw + stab_out.prev_err.yaw) * DT;
 
-    // // Apply HPF to the derivative term
+    // Apply HPF to the derivative term
     stab_out.D_term.roll = stab_params.RollD * stab_params.Alpha_roll * (angle_err.roll - stab_out.prev_err.roll + stab_out.D_term.roll);
     stab_out.D_term.pitch = stab_params.PitchD * stab_params.Alpha_pitch * (angle_err.pitch - stab_out.prev_err.pitch + stab_out.D_term.pitch);
     stab_out.D_term.yaw = stab_params.YawD * stab_params.Alpha_yaw * (angle_err.yaw - stab_out.prev_err.yaw + stab_out.D_term.yaw);
-
     // Cap the I term
+
     stab_out.I_term.roll = constrain(stab_out.I_term.roll, -stab_params.Imax_roll, stab_params.Imax_roll);
     stab_out.I_term.pitch = constrain(stab_out.I_term.pitch, -stab_params.Imax_pitch, stab_params.Imax_pitch);
     stab_out.I_term.yaw = constrain(stab_out.I_term.yaw, -stab_params.Imax_yaw, stab_params.Imax_yaw);
